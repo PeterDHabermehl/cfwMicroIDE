@@ -1,0 +1,11 @@
+[app]
+name: StartIDE
+category: Tools
+author: Peter Habermehl
+icon: icon.png
+desc: Beginner IDE for simple models
+exec: startide.py
+managed: yes
+uuid: 0e500e10-33ee-11e7-9598-0800200c9a66
+version: 0.1
+firmware: >=0.9.3
