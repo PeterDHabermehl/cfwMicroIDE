@@ -164,31 +164,7 @@ class FtcGuiApplication(TouchApplication):
         row=self.proglist.currentRow()
         cod=self.code[row]
         print(itm.text(), row, ":", "'"+cod+"'")
-        
-    def mkItemWidget(self, text):
-        k=QHBoxLayout()
-        s=""
-        p=0
-        for word in text.split():
-            if p==0:
-                l=QLabel(word)
-                l.setStyleSheet("font-size: 8px;")
-                k.addWidget(l)
-                l=QVBoxLayout()
-                p=1
-            elif p==1:
-                r=QLabel("<"+word+">")
-                r.setStyleSheet("font-size: 15px;")
-                l.addWidget(r)
-                p=2
-            else:
-                s=s+" <"+word+">"
-            r=QLabel(s)
-            r.setStyleSheet("font-size: 12px;")
-            l.addWidget(r)
-            
-        return l
-        
+                
 
 if __name__ == "__main__":
     FtcGuiApplication(sys.argv)
