@@ -1,7 +1,8 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-import sys
+import sys, time
+import threading as thd
 from TouchStyle import *
 from TouchAuxiliary import *
 
@@ -23,6 +24,24 @@ class QDblPushButton(QPushButton):
             self.timer.stop()
         else:
             self.timer.start(250)
+            
+class execThread(thd.Thread):
+    def __init__(self, initarg, output):
+        thd.Thread.__init__(self)
+        self.initarg=initarg
+        self.output=output
+    def run(self):
+        self.halt=False
+        self.count=0
+        while not self.halt:
+            self.count = self.count+1
+            print("Ping: ",self.count)
+            self.output.insertPlainText("Ping: "+str(self.count)+"\n")
+            time.sleep(0.5)
+    
+    def stop(self):
+        self.halt=True
+        
 
 class FtcGuiApplication(TouchApplication):
     def __init__(self, args):
@@ -77,6 +96,8 @@ class FtcGuiApplication(TouchApplication):
         
         # open last project etc.
         
+        
+        self.n=0
         # init internationalisation
         translator = QTranslator()
         path = os.path.dirname(os.path.realpath(__file__))
@@ -89,21 +110,29 @@ class FtcGuiApplication(TouchApplication):
         # and the central widget
         self.centralwidget=QWidget()
         
-        #
+        # the main window layout
         l=QVBoxLayout()
 
-        
+        # program list widget
         self.proglist=QListWidget()
         self.proglist.setStyleSheet("font-family: 'Monospace'; font-size: 14px;")
         self.proglist.itemDoubleClicked.connect(self.progItemDoubleClicked)
         
         c=0
         for a in self.code:
-            #self.proglist.addItem(("  "+str(c))[-3:]+ ": "+a)
             self.proglist.addItem(a)
             c=c+1
             
         l.addWidget(self.proglist)
+        
+        # alternate output text field
+        
+        self.output=QTextEdit()
+        self.output.setReadOnly(True)
+        self.output.setAcceptRichText(False)
+        l.addWidget(self.output)
+        self.output.hide()
+        
         self.proglist.setCurrentRow(0)
         
         # and the controls
@@ -135,15 +164,61 @@ class FtcGuiApplication(TouchApplication):
         
         self.starter = QPushButton(QCoreApplication.translate("main","Start"))
         self.starter.setStyleSheet("font-size: 20px;")
+        self.starter.clicked.connect(self.startStop)
+        
+        self.start=False
         
         l.addWidget(self.starter)
         
         self.centralwidget.setLayout(l)
         self.mainwindow.setCentralWidget(self.centralwidget)
         
+        self.mainwindow.titlebar.close.clicked.connect(self.closed)
+        
         self.mainwindow.show()
         self.exec_()
     
+    def closed(self):
+        if self.start==True: self.startStop()
+        
+    def startStop(self):
+        self.starter.setEnabled(False)
+        self.starter.setDisabled(True)
+        self.processEvents()
+        
+        self.start=not self.start
+
+        if self.start: self.setMainWindow(False)
+        else:          self.setMainWindow(True)
+        
+        if self.start:
+            self.et = execThread(0, self.output)
+            self.et.start()
+        else:
+            if self.et.isAlive(): self.et.stop()
+            self.et.join()
+            
+        #start/stop exec thread here...
+        
+        self.processEvents()
+
+        self.starter.setEnabled(True)
+        self.starter.setDisabled(False)
+
+    def setMainWindow(self, status):
+        #true -> main window enabled 
+        
+        self.add.setVisible(status)
+        self.rem.setVisible(status)
+        self.upp.setVisible(status)
+        self.don.setVisible(status)
+        self.proglist.setVisible(status)
+        
+        self.output.setVisible(not status)
+    
+        if status: self.starter.setText(QCoreApplication.translate("main","Start")) 
+        else:      self.starter.setText(QCoreApplication.translate("main","Stopp"))
+
     def addCodeLine(self):
         fta=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Add line"))
         fta.setText(QCoreApplication.translate("addcodeline","Select command type:"))
@@ -169,7 +244,7 @@ class FtcGuiApplication(TouchApplication):
         pass
 
     def progItemDoubleClicked(self):
-        print("DOBLGLIG")
+        print("Edit active item...")
         itm=self.proglist.currentItem()
         row=self.proglist.currentRow()
         cod=self.code[row]
