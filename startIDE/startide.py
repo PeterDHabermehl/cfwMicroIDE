@@ -26,9 +26,13 @@ class QDblPushButton(QPushButton):
         else:
             self.timer.start(250)
             
-class execThread(thd.Thread):
-    def __init__(self, codeList, output, starter, RIF,TXT):
-        thd.Thread.__init__(self)
+class execThread(QThread):
+    updateText=pyqtSignal(str)
+    clearText=pyqtSignal()
+    execThreadFinished=pyqtSignal()
+    
+    def __init__(self, codeList, output, starter, RIF,TXT, parent=None):
+        QThread.__init__(self, parent)
         
         self.codeList=codeList
         
@@ -39,12 +43,14 @@ class execThread(thd.Thread):
         self.TXT=TXT
         
     def run(self):
+                
         self.halt=False
         
         self.requireTXT=False
         self.requireRIF=False
         
         self.jmpTable=[]
+        self.LoopStack=[]
         
         cnt=0
         
@@ -59,32 +65,40 @@ class execThread(thd.Thread):
         if self.requireTXT and self.TXT==None:
             self.msgOut(QCoreApplication.translate("exec","TXT not found!\nProgram terminated\n"))
             self.stop()
-            return False
         if self.requireRIF and self.RIF==None:
             self.msgOut(QCoreApplication.translate("exec","RoboIF not found!\nProgram terminated\n"))
             self.stop()
-            return False
         
-        self.clrOut()
-        self.msgOut("<Start>")
-        self.count=0
+        if not self.halt:
+            self.clrOut()
+            self.msgOut("<Start>")
+            self.count=0
+        
         while not self.halt and self.count<len(self.codeList):
             line=self.codeList[self.count]
             self.parseLine(line)
             self.count=self.count+1
         
-        self.msgOut("<End>")
+        if not self.halt: self.msgOut("<End>")
         
-        for i in range(1,9):
-            self.RIF.SetOutput(i,0)
+        if self.RIF:
+            for i in range(1,9):
+                self.RIF.SetOutput(i,0)
         
-        if not self.halt: self.starter.setText(QCoreApplication.translate("main","Back"))
+        if self.TXT:
+            for i in range(1,9):
+                pass # shutoff txt outputs here later
         
-        return True
+        self.execThreadFinished.emit()
+    
+    def __del__(self):
+    
+        self.halt = True
+        self.wait()
 
+    
     def stop(self):
         self.halt=True
-        print("halt received")
         
     def parseLine(self,line):
         stack=line.split()
@@ -94,6 +108,7 @@ class execThread(thd.Thread):
         elif stack[0]== "Motor": self.cmdMotor(stack)
         elif stack[0]== "Delay": self.cmdDelay(stack)
         elif stack[0]== "Jump": self.cmdJump(stack)
+        elif stack[0]== "LoopTo": self.cmdLoopTo(stack)
         elif stack[0]== "WaitForInputDig": self.cmdWaitForInputDig(stack)
         elif stack[0]== "Print": self.cmdPrint(line[6:])
         
@@ -121,9 +136,35 @@ class execThread(thd.Thread):
         self.sleeping=False
         
     def cmdJump(self,stack):
+        n=-1
         for line in self.jmpTable:
-            if stack[1]==line[0]: self.count=line[1]
-            else: print("jump error!")
+            if stack[1]==line[0]: n=line[1]
+        if n==-1:
+            self.msgOut("Jump tag not found!")
+            self.halt=True
+        else:
+            self.count=n
+            
+    def cmdLoopTo(self,stack):
+        found=False
+        for n in range(0,len(self.LoopStack)):
+            if self.count==self.LoopStack[n][0]:
+                self.LoopStack[n][1]=self.LoopStack[n][1]-1
+                if self.LoopStack[n][1]>0:
+                    self.count=self.LoopStack[n][2]
+                else: self.LoopStack.pop(n)
+                found=True
+                break
+        if not found:
+            tgt=-1
+            for line in self.jmpTable:
+                if stack[1]==line[0]: tgt=line[1]
+            if tgt==-1:
+                self.msgOut("LoopTo tag not found!")
+                self.halt=True
+            else:
+                self.LoopStack.append([self.count, int(stack[2])-1, tgt])
+                self.count=tgt
             
     def cmdWaitForInputDig(self,stack):
         if stack[1]=="RIF":
@@ -144,13 +185,11 @@ class execThread(thd.Thread):
         self.msgOut(message)
         
     def msgOut(self,message):
-        self.output.addItem(message)
-        if self.output.count()>255: void=self.output.takeItem(0)
-        self.output.scrollToBottom()
+        self.updateText.emit(message)
         
     def clrOut(self):
-        self.output.clear()
-        
+        self.clearText.emit()
+    
 class FtcGuiApplication(TouchApplication):
     def __init__(self, args):
         TouchApplication.__init__(self, args)
@@ -158,6 +197,7 @@ class FtcGuiApplication(TouchApplication):
         # some init
         self.RIF=None
         self.TXT=None
+        self.etf=False
         
         self.initIFs()
         
@@ -174,37 +214,52 @@ class FtcGuiApplication(TouchApplication):
                "Output RIF 1 0",
                "Output RIF 2 0",
                "Output RIF 3 7",
+               "Print FZ gruen",
                "# Warten auf Fussgaengertaste",
+               "Print Warte auf FG",
                "WaitForInputDig RIF 1 Raising",
                "# Signal kommt",
                "Output RIF 6 7",
-               "Delay 1000",
+               "Print Signal kommt",
+               "Delay 3000",
                "# Fahrzeuge gruen - gelb",
                "Output RIF 2 7",
-               "Delay 1000",
+               "Print FZ gelb-gruen",
+               "Delay 2000",
                "# Fahrzeuge rot",
                "Output RIF 1 7",
                "Output RIF 2 0",
                "Output RIF 3 0",
-               "Delay 1000",
+               "Print FZ rot",
+               "Delay 2000",
                "# Fussgaenger gruen",
                "Output RIF 4 0",
                "Output RIF 5 7",
                "Output RIF 6 0",
+               "Print FG gruen",
                "Delay 2000",
+               "Print Ende FG gruen",
+               "Tag blink",
+               "Output RIF 5 0",
+               "Delay 250",
+               "Output RIF 5 7",
+               "Delay 250",
+               "LoopTo blink 6",
                "# Fussgaenger wieder rot",
                "Output RIF 4 7",
                "Output RIF 5 0",
-               "Delay 1000",
+               "Print FG rot",
+               "Delay 2000",
                "# Fahrzeuge gelb",
                "Output RIF 1 0",
                "Output RIF 2 7",
                "Output RIF 3 0",
-               "Delay 1000",
+               "Print FZ gelb",
+               "Delay 2000",
                "# und zurueck zum Start",
                "Jump gruen"
              ]
-        
+        '''
         self.code=["# head",
                    "Print Es geht los!",
                    "Motor RIF 1 r 7",
@@ -219,6 +274,9 @@ class FtcGuiApplication(TouchApplication):
                    "Print Pause",
                    "Delay 2000",
                    "Print Weiter",
+                   "Tag top",
+                   "Print La",
+                   "LoopTo top 2",
                    "#",
                    "# Lichschranke an",
                    "Motor RIF 2 l 7",
@@ -236,7 +294,8 @@ class FtcGuiApplication(TouchApplication):
                    "Print Jump",
                    "Jump start"
                    ]
-        
+
+        '''
         # would load presets here
         
         # open last project etc.
@@ -342,25 +401,44 @@ class FtcGuiApplication(TouchApplication):
         self.starter.setDisabled(True)
         self.processEvents()
         
-        self.start=not self.start
-
-        if self.start: self.setMainWindow(False)
-        else:          self.setMainWindow(True)
-        
-        if self.start:
-            self.et = execThread(self.code, self.output, self.starter, self.RIF, self.TXT)
-            self.et.start() 
+        if self.etf:
+            self.setMainWindow(True)
+            self.etf=False
+            self.start=False
         else:
-            if self.et.isAlive(): self.et.stop()
-            self.et.join()
+            self.start=not self.start
+
+            if self.start: self.setMainWindow(False)
             
-        #start/stop exec thread here...
-        
-        self.processEvents()
+            if self.start:
+                self.et = execThread(self.code, self.output, self.starter, self.RIF, self.TXT)
+                self.et.updateText.connect(self.updateText)
+                self.et.clearText.connect(self.clearText)
+                self.et.execThreadFinished.connect(self.execThreadFinished)
+                self.et.start() 
+            else:
+                self.et.stop()
+                self.et.wait()
+            
+            self.processEvents()
 
         self.starter.setEnabled(True)
         self.starter.setDisabled(False)
 
+    def updateText(self, message):
+        self.output.addItem(message)
+        if self.output.count()>255: void=self.output.takeItem(0)
+        self.output.scrollToBottom()
+    
+    def clearText(self):
+        self.output.clear()
+    
+    def execThreadFinished(self):
+        self.starter.setText(QCoreApplication.translate("main","Close log"))
+        self.etf=True
+        
+
+    
     def setMainWindow(self, status):
         #true -> main window enabled 
         
@@ -388,7 +466,6 @@ class FtcGuiApplication(TouchApplication):
         fta.setBtnTextSize(3)
         (s,r)=fta.exec_()
         if r==QCoreApplication.translate("addcodeline","Inputs"):
-            print("inputs")
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Inputs"))
             #ftb.setText(QCoreApplication.translate("addcodeline","Select input cmd.:"))
             ftb.setButtons([ QCoreApplication.translate("addcodeline","WaitForInputDig"),
@@ -399,7 +476,6 @@ class FtcGuiApplication(TouchApplication):
             ftb.setBtnTextSize(3)
             (t,p)=ftb.exec_()
         elif r==QCoreApplication.translate("addcodeline","Outputs"):
-            print("outputs")
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Outputs"))
             #ftb.setText(QCoreApplication.translate("addcodeline","Select output cmd.:"))
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Output"),
@@ -412,7 +488,6 @@ class FtcGuiApplication(TouchApplication):
             ftb.setBtnTextSize(3)
             (t,p)=ftb.exec_()
         elif r==QCoreApplication.translate("addcodeline","Controls"):
-            print("controls")
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Controls"))
             #ftb.setText(QCoreApplication.translate("addcodeline","Select control cmd.:"))
             ftb.setButtons([ QCoreApplication.translate("addcodeline","# comment"),
@@ -427,7 +502,6 @@ class FtcGuiApplication(TouchApplication):
             ftb.setBtnTextSize(3)
             (t,p)=ftb.exec_()
         elif r==QCoreApplication.translate("addcodeline","Interaction"):
-            print("interaction")
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Interact"))
             #ftb.setText(QCoreApplication.translate("addcodeline","Select interact cmd.:"))
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Print"),
@@ -454,11 +528,9 @@ class FtcGuiApplication(TouchApplication):
         pass
 
     def progItemDoubleClicked(self):
-        print("Edit active item...")
         itm=self.proglist.currentItem()
         row=self.proglist.currentRow()
         cod=self.code[row]
-        print(itm.text(), row, ":", "'"+cod+"'")
                 
 
 if __name__ == "__main__":
