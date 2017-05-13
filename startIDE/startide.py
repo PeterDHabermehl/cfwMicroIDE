@@ -110,6 +110,7 @@ class execThread(QThread):
         elif stack[0]== "Jump": self.cmdJump(stack)
         elif stack[0]== "LoopTo": self.cmdLoopTo(stack)
         elif stack[0]== "WaitForInputDig": self.cmdWaitForInputDig(stack)
+        elif stack[0]== "IfInputDig": self.cmdIfInputDig(stack)
         elif stack[0]== "Print": self.cmdPrint(line[6:])
         
     def cmdOutput(self, stack):
@@ -181,6 +182,18 @@ class execThread(QThread):
                     b=a
                     a=self.RIF.Digital(int(stack[2]))
     
+    def cmdIfInputDig(self,stack):
+        if stack[1]=="RIF":
+            if (stack[3]=="True" and self.RIF.Digital(int(stack[2]))) or (stack[3]=="False" and not self.RIF.Digital(int(stack[2]))):
+                n=-1
+                for line in self.jmpTable:
+                    if stack[4]==line[0]: n=line[1]
+                if n==-1:
+                    self.msgOut("IfInputDig jump tag not found!")
+                    self.halt=True
+                else:
+                    self.count=n
+
     def cmdPrint(self, message):
         self.msgOut(message)
         
@@ -217,7 +230,10 @@ class FtcGuiApplication(TouchApplication):
                "Print FZ gruen",
                "# Warten auf Fussgaengertaste",
                "Print Warte auf FG",
-               "WaitForInputDig RIF 1 Raising",
+               "Print ...oder Ende",
+               "Tag wait",
+               "IfInputDig RIF 2 True ende",
+               "IfInputDig RIF 1 False wait",
                "# Signal kommt",
                "Output RIF 6 7",
                "Print Signal kommt",
@@ -257,7 +273,9 @@ class FtcGuiApplication(TouchApplication):
                "Print FZ gelb",
                "Delay 2000",
                "# und zurueck zum Start",
-               "Jump gruen"
+               "Jump gruen",
+               "# Sprungmarke Ende",
+               "Tag ende"
              ]
         '''
         self.code=["# head",
