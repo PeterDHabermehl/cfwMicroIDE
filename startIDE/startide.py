@@ -153,13 +153,13 @@ class execThread(QThread):
         n=stack[6]
         s=stack[7]
         if stack[1]=="RIF":
-            if d=="l" and self.RIF.Digital(e): return
+            if e!="None": if d=="l" and self.RIF.Digital(int(e)): return
             
             a=self.RIF.Digital(p)
             self.RIF.SetMotor(m,d,s)
             c=0
             while c<n and not self.halt:
-                if d=="l" and self.RIF.Digital(e): break
+                if e!="None": if d=="l" and self.RIF.Digital(int(e)): break
                 b=a
                 a=self.RIF.Digital(p)
                 if not a==b: c=c+1
