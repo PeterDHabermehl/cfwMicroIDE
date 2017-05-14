@@ -7,6 +7,23 @@ from TouchStyle import *
 from TouchAuxiliary import *
 from robointerface import *
 
+hostdir = os.path.dirname(os.path.realpath(__file__)) + "/"
+
+try:
+    with open(hostdir+"manifest","r") as f:
+        r=f.readline()
+        while not "version" in r:
+          r=f.readline()
+        
+        if "version" in r:
+          vstring = "v" + r[ r.index(":")+2 : ]
+        else: vstring=""
+        f.close()
+except:
+    vstring="n/a"
+    
+    
+
 class QDblPushButton(QPushButton):
     doubleClicked = pyqtSignal()
     clicked = pyqtSignal()
@@ -30,6 +47,7 @@ class execThread(QThread):
     updateText=pyqtSignal(str)
     clearText=pyqtSignal()
     execThreadFinished=pyqtSignal()
+    showMessage=pyqtSignal(list)
     
     def __init__(self, codeList, output, starter, RIF,TXT, parent=None):
         QThread.__init__(self, parent)
@@ -38,6 +56,7 @@ class execThread(QThread):
         
         self.output=output
         self.starter=starter
+        self.msg=0 # für Messages aus dem GUI Thread
         
         self.RIF=RIF
         self.TXT=TXT
@@ -100,18 +119,23 @@ class execThread(QThread):
     def stop(self):
         self.halt=True
         
+    def setMsg(self, num):
+        self.msg=num
+        
     def parseLine(self,line):
         stack=line.split()
         if stack[0]  == "#": pass
         elif stack[0]== "Stop": self.count=len(self.codeList)
         elif stack[0]== "Output": self.cmdOutput(stack)
         elif stack[0]== "Motor": self.cmdMotor(stack)
+        elif stack[0]== "MotorPulsewheel": self.cmdMotorPulsewheel(stack)
         elif stack[0]== "Delay": self.cmdDelay(stack)
         elif stack[0]== "Jump": self.cmdJump(stack)
         elif stack[0]== "LoopTo": self.cmdLoopTo(stack)
         elif stack[0]== "WaitForInputDig": self.cmdWaitForInputDig(stack)
         elif stack[0]== "IfInputDig": self.cmdIfInputDig(stack)
         elif stack[0]== "Print": self.cmdPrint(line[6:])
+        elif stack[0]== "Message": self.cmdMessage(stack)
         
     def cmdOutput(self, stack):
         if stack[1]=="RIF":
@@ -120,6 +144,28 @@ class execThread(QThread):
     def cmdMotor(self, stack):
         if stack[1]=="RIF":
             self.RIF.SetMotor(int(stack[2]),stack[3], int(stack[4]))
+    
+    def cmdMotorPulsewheel(self, stack):
+        m=stack[2]
+        e=stack[3]
+        p=stack[4]
+        d=stack[5]
+        n=stack[6]
+        s=stack[7]
+        if stack[1]=="RIF":
+            if d=="l" and self.RIF.Digital(e): return
+            
+            a=self.RIF.Digital(p)
+            self.RIF.SetMotor(m,d,s)
+            c=0
+            while c<n and not self.halt:
+                if d=="l" and self.RIF.Digital(e): break
+                b=a
+                a=self.RIF.Digital(p)
+                if not a==b: c=c+1
+            
+            self.RIF.SetMotor(m,"s",0)
+            
             
     def cmdDelay(self, stack):
         self.sleeping=True
@@ -196,7 +242,14 @@ class execThread(QThread):
 
     def cmdPrint(self, message):
         self.msgOut(message)
-        
+    
+    def cmdMessage(self, stack):
+        self.msg=0
+        self.showMessage.emit(stack)
+        while self.msg==0:
+            time.sleep(0.01)
+        self.msg=0
+    
     def msgOut(self,message):
         self.updateText.emit(message)
         
@@ -204,6 +257,8 @@ class execThread(QThread):
         self.clearText.emit()
     
 class FtcGuiApplication(TouchApplication):
+    response=pyqtSignal(int)
+    
     def __init__(self, args):
         TouchApplication.__init__(self, args)
         
@@ -218,6 +273,7 @@ class FtcGuiApplication(TouchApplication):
         
         self.code=[ "# ",
                "# Ampel",
+               "Message 'Ampelprogramm\nsteuert eine Fußgängerampel.\n(c) 05/2017 Peter Habermehl' 'Okay'",
                "# Fussgaenger rot setzen",
                "Output RIF 4 7",
                "Output RIF 5 0",
@@ -329,12 +385,31 @@ class FtcGuiApplication(TouchApplication):
         # create the empty main window
         self.mainwindow = TouchWindow("startIDE")
         
+        # add a menu
+        
+        self.menu=self.mainwindow.addMenu()
+        self.menu.setStyleSheet("font-size: 20px;")
+                
+        self.m_project = self.menu.addAction(QCoreApplication.translate("mmain","Project"))
+        #self.m_load.triggered.connect(self.on_menu_project)     
+        
+        self.menu.addSeparator()
+        
+        self.m_interf = self.menu.addAction(QCoreApplication.translate("mmain","Interfaces"))
+        #self.m_interf.triggered.connect(self.on_menu_interfaces)  
+        
+        self.menu.addSeparator()
+        
+        self.m_about=self.menu.addAction(QCoreApplication.translate("mmain","About"))
+        self.m_about.triggered.connect(self.on_menu_about)
+        
+        
         # and the central widget
         self.centralwidget=QWidget()
         
         # the main window layout
-        l=QVBoxLayout()
-
+        l=QVBoxLayout()    
+        
         # program list widget
         self.proglist=QListWidget()
         self.proglist.setStyleSheet("font-family: 'Monospace'; font-size: 14px;")
@@ -406,6 +481,15 @@ class FtcGuiApplication(TouchApplication):
     def closed(self):
         if self.start==True: self.startStop()
 
+    def on_menu_about(self):
+        t=TouchMessageBox(QCoreApplication.translate("m_about","About"), None)
+        t.setCancelButton()
+        t.setText(QCoreApplication.translate("m_about","<center><h2>startIDE</h2><hr>A tiny IDE to control Robo Interfaces and TXT Hardware<hr>(c)2017 Peter Habermehl<br>Version: "+vstring))
+        t.setTextSize(1)
+        t.setBtnTextSize(2)
+        t.setPosButton(QCoreApplication.translate("m_about","Okay"))
+        (v1,v2)=t.exec_()         
+    
     def initIFs(self):
         #init robo family
         
@@ -416,11 +500,13 @@ class FtcGuiApplication(TouchApplication):
 
     def startStop(self):
         self.starter.setEnabled(False)
+        self.menu.setEnabled(False)
         self.starter.setDisabled(True)
         self.processEvents()
         
         if self.etf:
             self.setMainWindow(True)
+            self.menu.setEnabled(True)
             self.etf=False
             self.start=False
         else:
@@ -433,6 +519,7 @@ class FtcGuiApplication(TouchApplication):
                 self.et.updateText.connect(self.updateText)
                 self.et.clearText.connect(self.clearText)
                 self.et.execThreadFinished.connect(self.execThreadFinished)
+                self.et.showMessage.connect(self.messageBox)
                 self.et.start() 
             else:
                 self.et.stop()
@@ -455,7 +542,15 @@ class FtcGuiApplication(TouchApplication):
         self.starter.setText(QCoreApplication.translate("main","Close log"))
         self.etf=True
         
-
+    def messageBox(self, stack):
+        t=TouchMessageBox(QCoreApplication.translate("exec","Message"), None)
+        t.setCancelButton()
+        t.setText(stack[1][1:-1])
+        t.setTextSize(2)
+        t.setBtnTextSize(2)
+        t.setPosButton(stack[2][1:-1])
+        (v1,v2)=t.exec_()       
+        self.et.setMsg(1)
     
     def setMainWindow(self, status):
         #true -> main window enabled 
