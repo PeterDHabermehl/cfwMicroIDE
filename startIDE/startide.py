@@ -47,7 +47,7 @@ class execThread(QThread):
     updateText=pyqtSignal(str)
     clearText=pyqtSignal()
     execThreadFinished=pyqtSignal()
-    showMessage=pyqtSignal(list)
+    showMessage=pyqtSignal(str)
     
     def __init__(self, codeList, output, starter, RIF,TXT, parent=None):
         QThread.__init__(self, parent)
@@ -135,7 +135,7 @@ class execThread(QThread):
         elif stack[0]== "WaitForInputDig": self.cmdWaitForInputDig(stack)
         elif stack[0]== "IfInputDig": self.cmdIfInputDig(stack)
         elif stack[0]== "Print": self.cmdPrint(line[6:])
-        elif stack[0]== "Message": self.cmdMessage(stack)
+        elif stack[0]== "Message": self.cmdMessage(line[8:])
         
     def cmdOutput(self, stack):
         if stack[1]=="RIF":
@@ -146,20 +146,23 @@ class execThread(QThread):
             self.RIF.SetMotor(int(stack[2]),stack[3], int(stack[4]))
     
     def cmdMotorPulsewheel(self, stack):
-        m=stack[2]
-        e=stack[3]
-        p=stack[4]
-        d=stack[5]
-        n=stack[6]
-        s=stack[7]
+        m=int(stack[2])      # Output No.
+        if stack[3] == "None": e = -1
+        else: e = int(stack[3])   # End switch input
+        p=int(stack[4]) # Pulse input
+        d=stack[5]      # Direction
+        s=int(stack[6]) # speed
+        n=int(stack[7]) # pulses
         if stack[1]=="RIF":
-            if e!="None": if d=="l" and self.RIF.Digital(int(e)): return
+            if e>-1:
+                if d=="l" and self.RIF.Digital(e): return
             
             a=self.RIF.Digital(p)
             self.RIF.SetMotor(m,d,s)
             c=0
             while c<n and not self.halt:
-                if e!="None": if d=="l" and self.RIF.Digital(int(e)): break
+                if e>-1:
+                    if d=="l" and self.RIF.Digital(e): break
                 b=a
                 a=self.RIF.Digital(p)
                 if not a==b: c=c+1
@@ -243,9 +246,9 @@ class execThread(QThread):
     def cmdPrint(self, message):
         self.msgOut(message)
     
-    def cmdMessage(self, stack):
+    def cmdMessage(self, rawline):
         self.msg=0
-        self.showMessage.emit(stack)
+        self.showMessage.emit(rawline)
         while self.msg==0:
             time.sleep(0.01)
         self.msg=0
@@ -272,78 +275,82 @@ class FtcGuiApplication(TouchApplication):
         #define variables for test
         
         self.code=[ "# ",
-               "# Ampel",
-               "Message 'Ampelprogramm\nsteuert eine Fußgängerampel.\n(c) 05/2017 Peter Habermehl' 'Okay'",
-               "# Fussgaenger rot setzen",
-               "Output RIF 4 7",
-               "Output RIF 5 0",
-               "#",
-               "Tag gruen",
-               "# Fahrzeuge gruen",
-               "Output RIF 1 0",
-               "Output RIF 2 0",
-               "Output RIF 3 7",
-               "Print FZ gruen",
-               "# Warten auf Fussgaengertaste",
-               "Print Warte auf FG",
-               "Print ...oder Ende",
-               "Tag wait",
-               "IfInputDig RIF 2 True ende",
-               "IfInputDig RIF 1 False wait",
-               "# Signal kommt",
-               "Output RIF 6 7",
-               "Print Signal kommt",
-               "Delay 3000",
-               "# Fahrzeuge gruen - gelb",
-               "Output RIF 2 7",
-               "Print FZ gelb-gruen",
-               "Delay 2000",
-               "# Fahrzeuge rot",
-               "Output RIF 1 7",
-               "Output RIF 2 0",
-               "Output RIF 3 0",
-               "Print FZ rot",
-               "Delay 2000",
-               "# Fussgaenger gruen",
-               "Output RIF 4 0",
-               "Output RIF 5 7",
-               "Output RIF 6 0",
-               "Print FG gruen",
-               "Delay 2000",
-               "Print Ende FG gruen",
-               "Tag blink",
-               "Output RIF 5 0",
-               "Delay 250",
-               "Output RIF 5 7",
-               "Delay 250",
-               "LoopTo blink 6",
-               "# Fussgaenger wieder rot",
-               "Output RIF 4 7",
-               "Output RIF 5 0",
-               "Print FG rot",
-               "Delay 2000",
-               "# Fahrzeuge gelb",
-               "Output RIF 1 0",
-               "Output RIF 2 7",
-               "Output RIF 3 0",
-               "Print FZ gelb",
-               "Delay 2000",
-               "# und zurueck zum Start",
-               "Jump gruen",
-               "# Sprungmarke Ende",
-               "Tag ende"
-             ]
+                    "# Ampel",
+                    "Message 'Ampelprogramm steuert eine Fußgängerampel.<br><br>(c) 05/2017<br>Peter Habermehl' 'Okay'",
+                    "# Fussgaenger rot setzen",
+                    "Output RIF 4 7",
+                    "Output RIF 5 0",
+                    "#",
+                    "Tag gruen",
+                    "# Fahrzeuge gruen",
+                    "Output RIF 1 0",
+                    "Output RIF 2 0",
+                    "Output RIF 3 7",
+                    "Print FZ gruen",
+                    "# Warten auf Fussgaengertaste",
+                    "Print Warte auf FG",
+                    "Print ...oder Ende",
+                    "Tag wait",
+                    "IfInputDig RIF 2 True ende",
+                    "IfInputDig RIF 1 False wait",
+                    "# Signal kommt",
+                    "Output RIF 6 7",
+                    "Print Signal kommt",
+                    "Delay 3000",
+                    "# Fahrzeuge gruen - gelb",
+                    "Output RIF 2 7",
+                    "Print FZ gelb-gruen",
+                    "Delay 2000",
+                    "# Fahrzeuge rot",
+                    "Output RIF 1 7",
+                    "Output RIF 2 0",
+                    "Output RIF 3 0",
+                    "Print FZ rot",
+                    "Delay 2000",
+                    "# Fussgaenger gruen",
+                    "Output RIF 4 0",
+                    "Output RIF 5 7",
+                    "Output RIF 6 0",
+                    "Print FG gruen",
+                    "Delay 2000",
+                    "Print Ende FG gruen",
+                    "Tag blink",
+                    "Output RIF 5 0",
+                    "Delay 250",
+                    "Output RIF 5 7",
+                    "Delay 250",
+                    "LoopTo blink 6",
+                    "# Fussgaenger wieder rot",
+                    "Output RIF 4 7",
+                    "Output RIF 5 0",
+                    "Print FG rot",
+                    "Delay 2000",
+                    "# Fahrzeuge gelb",
+                    "Output RIF 1 0",
+                    "Output RIF 2 7",
+                    "Output RIF 3 0",
+                    "Print FZ gelb",
+                    "Delay 2000",
+                    "# und zurueck zum Start",
+                    "Jump gruen",
+                    "# Sprungmarke Ende",
+                    "Tag ende"
+                    ]
+        
         '''
         self.code=["# head",
                    "Print Es geht los!",
                    "Motor RIF 1 r 7",
                    "Delay 1000",
-                   "Stop",
                    "Motor RIF 1 l 7",
                    "Delay 1000",
-                   "Motor RIF 1 s 0"
+                   "Motor RIF 1 s 0",
+                   "Delay 1000",
+                   "Print Pulse",
+                   "MotorPulsewheel RIF 1 None 2 l 7 3"                   
                    ]
                    
+        
         self.code=["# Haendetrockner",
                    "Print Pause",
                    "Delay 2000",
@@ -543,12 +550,16 @@ class FtcGuiApplication(TouchApplication):
         self.etf=True
         
     def messageBox(self, stack):
+        msg=stack[1:stack[1:].find("'")+1]
+        btn=stack[len(msg)+3:][1:-1]
+        print("msg:",msg)
+        print("btn:",btn)
         t=TouchMessageBox(QCoreApplication.translate("exec","Message"), None)
         t.setCancelButton()
-        t.setText(stack[1][1:-1])
+        t.setText(msg)
         t.setTextSize(2)
         t.setBtnTextSize(2)
-        t.setPosButton(stack[2][1:-1])
+        t.setPosButton(btn)
         (v1,v2)=t.exec_()       
         self.et.setMsg(1)
     
