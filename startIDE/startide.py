@@ -403,7 +403,7 @@ class FtcGuiApplication(TouchApplication):
         self.menu.addSeparator()
         
         self.m_interf = self.menu.addAction(QCoreApplication.translate("mmain","Interfaces"))
-        #self.m_interf.triggered.connect(self.on_menu_interfaces)  
+        self.m_interf.triggered.connect(self.on_menu_interfaces)  
         
         self.menu.addSeparator()
         
@@ -491,20 +491,50 @@ class FtcGuiApplication(TouchApplication):
     def on_menu_about(self):
         t=TouchMessageBox(QCoreApplication.translate("m_about","About"), None)
         t.setCancelButton()
-        t.setText(QCoreApplication.translate("m_about","<center><h2>startIDE</h2><hr>A tiny IDE to control Robo Interfaces and TXT Hardware<hr>(c)2017 Peter Habermehl<br>Version: "+vstring))
+        t.setText("<center><h2>startIDE</h2><hr>" + QCoreApplication.translate("m_about","A tiny IDE to control Robo Family Interfaces and TXT Hardware") + "<hr>(c)2017 Peter Habermehl<br>Version: "+vstring)
         t.setTextSize(1)
         t.setBtnTextSize(2)
         t.setPosButton(QCoreApplication.translate("m_about","Okay"))
         (v1,v2)=t.exec_()         
     
+    def on_menu_interfaces(self):
+        
+        self.initIFs()
+        
+        if self.RIF==None: s= QCoreApplication.translate("m_interfaces","No Robo device")
+        else: s = self.RIF.GetDeviceTypeString()
+                
+        t = QCoreApplication.translate("m_interfaces","No TXT device")
+        
+        text="<center>" + QCoreApplication.translate("m_interfaces","Hardware found:") + "<hr><i>" + s + "<hr>" + t
+        
+        t=TouchMessageBox(QCoreApplication.translate("m_interfaces","Interfaces"), None)
+        t.setCancelButton()
+        t.setText(text)
+        t.setTextSize(1)
+        t.setBtnTextSize(2)
+        t.setPosButton(QCoreApplication.translate("m_interfaces","Okay"))
+        (v1,v2)=t.exec_()  
+        
+        
     def initIFs(self):
+        # close, if open
+        if self.RIF:
+            self.RIF.close()
+            time.sleep(0.1)
+            
         #init robo family
         
         self.RIF=RoboInterface()
         if not self.RIF.hasInterface(): self.RIF=None
-                
+        
         self.TXT=None #for now ;-)        
+            
 
+    def codeFromListWidget(self):
+        self.code=[]
+        for i in range(0,self.proglist.count()): self.code.append(self.proglist.item(i).text())
+        
     def startStop(self):
         self.starter.setEnabled(False)
         self.menu.setEnabled(False)
@@ -518,10 +548,10 @@ class FtcGuiApplication(TouchApplication):
             self.start=False
         else:
             self.start=not self.start
-
-            if self.start: self.setMainWindow(False)
             
             if self.start:
+                self.codeFromListWidget()
+                self.setMainWindow(False)
                 self.et = execThread(self.code, self.output, self.starter, self.RIF, self.TXT)
                 self.et.updateText.connect(self.updateText)
                 self.et.clearText.connect(self.clearText)
@@ -552,8 +582,6 @@ class FtcGuiApplication(TouchApplication):
     def messageBox(self, stack):
         msg=stack[1:stack[1:].find("'")+1]
         btn=stack[len(msg)+3:][1:-1]
-        print("msg:",msg)
-        print("btn:",btn)
         t=TouchMessageBox(QCoreApplication.translate("exec","Message"), None)
         t.setCancelButton()
         t.setText(msg)
@@ -611,13 +639,17 @@ class FtcGuiApplication(TouchApplication):
             ftb.setTextSize(3)
             ftb.setBtnTextSize(3)
             (t,p)=ftb.exec_()
+            if t:
+                if p== QCoreApplication.translate("addcodeline","Output"):
+                    pass
+                    
         elif r==QCoreApplication.translate("addcodeline","Controls"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Controls"))
             #ftb.setText(QCoreApplication.translate("addcodeline","Select control cmd.:"))
             ftb.setButtons([ QCoreApplication.translate("addcodeline","# comment"),
                              QCoreApplication.translate("addcodeline","Tag"),
                              QCoreApplication.translate("addcodeline","Jump"),
-                             QCoreApplication.translate("addcodeline","LoopBack"),
+                             QCoreApplication.translate("addcodeline","LoopTo"),
                              QCoreApplication.translate("addcodeline","Delay"),
                              QCoreApplication.translate("addcodeline","Stop")
                             ]
@@ -625,6 +657,14 @@ class FtcGuiApplication(TouchApplication):
             ftb.setTextSize(3)
             ftb.setBtnTextSize(3)
             (t,p)=ftb.exec_()
+            if t:
+                if p== QCoreApplication.translate("addcodeline","# comment"): self.acl_comment()
+                elif p==QCoreApplication.translate("addcodeline","Tag"): self.acl_tag()
+                elif p==QCoreApplication.translate("addcodeline","Jump"): pass
+                elif p==QCoreApplication.translate("addcodeline","LoopTo"): pass
+                elif p==QCoreApplication.translate("addcodeline","Delay"): pass 
+                elif p==QCoreApplication.translate("addcodeline","Stop"): self.acl_stop()
+                            
         elif r==QCoreApplication.translate("addcodeline","Interaction"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Interact"))
             #ftb.setText(QCoreApplication.translate("addcodeline","Select interact cmd.:"))
@@ -637,6 +677,20 @@ class FtcGuiApplication(TouchApplication):
             ftb.setBtnTextSize(3)
             (t,p)=ftb.exec_()             
 
+    def acl(self,code):
+        self.proglist.insertItem(self.proglist.currentRow()+1,code)
+        self.proglist.setCurrentRow(self.proglist.currentRow()+1)
+        self.progItemDoubleClicked()
+    
+    def acl_stop(self):
+        self.acl("Stop")
+    
+    def acl_comment(self):
+        self.acl("# ")
+        
+    def acl_tag(self):
+        self.acl("Tag ")
+    
     def remCodeLine(self):
         row=self.proglist.currentRow()
         del self.code[row]
@@ -652,10 +706,71 @@ class FtcGuiApplication(TouchApplication):
         pass
 
     def progItemDoubleClicked(self):
-        itm=self.proglist.currentItem()
-        row=self.proglist.currentRow()
-        cod=self.code[row]
-                
+        itm=self.proglist.currentItem().text()
+        stack=itm.split()
+        
+        if   stack[0] == "Output":              itm=self.ecl_output()
+        elif stack[0] == "Motor":               itm=self.ecl_motor()
+        elif stack[0] == "MotorPulsewheel":     itm=self.ecl_motorPulsewheel()
+        elif stack[0] == "MotorEncoder":        itm=self.ecl_motorEncoder()
+        elif stack[0] == "WaitForInputDig":     itm=self.ecl_waitForInputDig()
+        elif stack[0] == "IfInputDig":          itm=self.ecl_ifInputDig()
+        elif stack[0] == "#":                   itm=self.ecl_comment()
+        elif stack[0] == "Tag":                 itm=self.ecl_tag()
+        elif stack[0] == "Jump":                itm=self.ecl_jump()
+        elif stack[0] == "LoopTo":              itm=self.ecl_loopTo()
+        elif stack[0] == "Delay":               itm=self.ecl_delay()
+        elif stack[0] == "Stop":                itm=self.ecl_stop()
+        elif stack[0] == "Print":               itm=self.ecl_print()
+        elif stack[0] == "Message":             itm=self.ecl_message()
+        elif stack[0] == "Request":             itm=self.ecl_request()
+        
+        self.proglist.currentItem().setText(itm)
+
+    def ecl_output(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_motor(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_motorPulsewheel(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_motorEncoder(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_waitForInputDig(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_ifInputDig(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_comment(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_tag(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_jump(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_loopTo(self):
+        pass
+    def ecl_delay(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_stop(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_print(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_message(self):
+        itm=self.proglist.currentItem().text()
+        return itm
+    def ecl_request(self):
+        itm=self.proglist.currentItem().text()
+        return itm
 
 if __name__ == "__main__":
     FtcGuiApplication(sys.argv)
