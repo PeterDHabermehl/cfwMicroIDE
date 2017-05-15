@@ -619,7 +619,6 @@ class FtcGuiApplication(TouchApplication):
         (s,r)=fta.exec_()
         if r==QCoreApplication.translate("addcodeline","Inputs"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Inputs"))
-            #ftb.setText(QCoreApplication.translate("addcodeline","Select input cmd.:"))
             ftb.setButtons([ QCoreApplication.translate("addcodeline","WaitForInputDig"),
                              QCoreApplication.translate("addcodeline","IfInputDig")
                             ]
@@ -629,7 +628,6 @@ class FtcGuiApplication(TouchApplication):
             (t,p)=ftb.exec_()
         elif r==QCoreApplication.translate("addcodeline","Outputs"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Outputs"))
-            #ftb.setText(QCoreApplication.translate("addcodeline","Select output cmd.:"))
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Output"),
                              QCoreApplication.translate("addcodeline","Motor"),
                              QCoreApplication.translate("addcodeline","MotorPulsewheel"),
@@ -645,7 +643,6 @@ class FtcGuiApplication(TouchApplication):
                     
         elif r==QCoreApplication.translate("addcodeline","Controls"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Controls"))
-            #ftb.setText(QCoreApplication.translate("addcodeline","Select control cmd.:"))
             ftb.setButtons([ QCoreApplication.translate("addcodeline","# comment"),
                              QCoreApplication.translate("addcodeline","Tag"),
                              QCoreApplication.translate("addcodeline","Jump"),
@@ -658,16 +655,15 @@ class FtcGuiApplication(TouchApplication):
             ftb.setBtnTextSize(3)
             (t,p)=ftb.exec_()
             if t:
-                if p== QCoreApplication.translate("addcodeline","# comment"): self.acl_comment()
-                elif p==QCoreApplication.translate("addcodeline","Tag"): self.acl_tag()
-                elif p==QCoreApplication.translate("addcodeline","Jump"): pass
-                elif p==QCoreApplication.translate("addcodeline","LoopTo"): pass
-                elif p==QCoreApplication.translate("addcodeline","Delay"): pass 
-                elif p==QCoreApplication.translate("addcodeline","Stop"): self.acl_stop()
+                if   p==QCoreApplication.translate("addcodeline","# comment"):  self.acl_comment()
+                elif p==QCoreApplication.translate("addcodeline","Tag"):        self.acl_tag()
+                elif p==QCoreApplication.translate("addcodeline","Jump"):       self.acl_jump()
+                elif p==QCoreApplication.translate("addcodeline","LoopTo"):     self.acl_loopTo()
+                elif p==QCoreApplication.translate("addcodeline","Delay"):      self.acl_delay()
+                elif p==QCoreApplication.translate("addcodeline","Stop"):       self.acl_stop()
                             
         elif r==QCoreApplication.translate("addcodeline","Interaction"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Interact"))
-            #ftb.setText(QCoreApplication.translate("addcodeline","Select interact cmd.:"))
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Print"),
                              QCoreApplication.translate("addcodeline","Message"),
                              QCoreApplication.translate("addcodeline","Request")
@@ -690,6 +686,15 @@ class FtcGuiApplication(TouchApplication):
         
     def acl_tag(self):
         self.acl("Tag ")
+        
+    def acl_jump(self):
+        self.acl("Jump ")
+    
+    def acl_loopTo(self):
+        self.acl("LoopTo ")
+    
+    def acl_delay(self):
+        self.acl("Delay 1000")
     
     def remCodeLine(self):
         row=self.proglist.currentRow()
