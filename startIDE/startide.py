@@ -1,14 +1,18 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-import sys, time
+import sys, time, os, json
 import threading as thd
 from TouchStyle import *
 from TouchAuxiliary import *
 from robointerface import *
 
 hostdir = os.path.dirname(os.path.realpath(__file__)) + "/"
+projdir = hostdir + "/projects/"
 
+if not os.path.exists(projdir):
+    os.mkdir(projdir)
+    
 try:
     with open(hostdir+"manifest","r") as f:
         r=f.readline()
@@ -274,68 +278,7 @@ class FtcGuiApplication(TouchApplication):
         
         #define variables for test
         
-        self.code=[ "# ",
-                    "# Ampel",
-                    "Message 'Ampelprogramm steuert eine Fußgängerampel.<br><br>(c) 05/2017<br>Peter Habermehl' 'Okay'",
-                    "# Fussgaenger rot setzen",
-                    "Output RIF 4 7",
-                    "Output RIF 5 0",
-                    "#",
-                    "Tag gruen",
-                    "# Fahrzeuge gruen",
-                    "Output RIF 1 0",
-                    "Output RIF 2 0",
-                    "Output RIF 3 7",
-                    "Print FZ gruen",
-                    "# Warten auf Fussgaengertaste",
-                    "Print Warte auf FG",
-                    "Print ...oder Ende",
-                    "Tag wait",
-                    "IfInputDig RIF 2 True ende",
-                    "IfInputDig RIF 1 False wait",
-                    "# Signal kommt",
-                    "Output RIF 6 7",
-                    "Print Signal kommt",
-                    "Delay 3000",
-                    "# Fahrzeuge gruen - gelb",
-                    "Output RIF 2 7",
-                    "Print FZ gelb-gruen",
-                    "Delay 2000",
-                    "# Fahrzeuge rot",
-                    "Output RIF 1 7",
-                    "Output RIF 2 0",
-                    "Output RIF 3 0",
-                    "Print FZ rot",
-                    "Delay 2000",
-                    "# Fussgaenger gruen",
-                    "Output RIF 4 0",
-                    "Output RIF 5 7",
-                    "Output RIF 6 0",
-                    "Print FG gruen",
-                    "Delay 2000",
-                    "Print Ende FG gruen",
-                    "Tag blink",
-                    "Output RIF 5 0",
-                    "Delay 250",
-                    "Output RIF 5 7",
-                    "Delay 250",
-                    "LoopTo blink 6",
-                    "# Fussgaenger wieder rot",
-                    "Output RIF 4 7",
-                    "Output RIF 5 0",
-                    "Print FG rot",
-                    "Delay 2000",
-                    "# Fahrzeuge gelb",
-                    "Output RIF 1 0",
-                    "Output RIF 2 7",
-                    "Output RIF 3 0",
-                    "Print FZ gelb",
-                    "Delay 2000",
-                    "# und zurueck zum Start",
-                    "Jump gruen",
-                    "# Sprungmarke Ende",
-                    "Tag ende"
-                    ]
+        self.code=["# new"]
         
         '''
         self.code=["# head",
@@ -381,8 +324,11 @@ class FtcGuiApplication(TouchApplication):
         
         # open last project etc.
         
+        self.codeSaved=True
+        self.codeName="startIDE"
         
         self.n=0
+        
         # init internationalisation
         translator = QTranslator()
         path = os.path.dirname(os.path.realpath(__file__))
@@ -398,7 +344,7 @@ class FtcGuiApplication(TouchApplication):
         self.menu.setStyleSheet("font-size: 20px;")
                 
         self.m_project = self.menu.addAction(QCoreApplication.translate("mmain","Project"))
-        #self.m_load.triggered.connect(self.on_menu_project)     
+        self.m_project.triggered.connect(self.on_menu_project)     
         
         self.menu.addSeparator()
         
@@ -495,7 +441,108 @@ class FtcGuiApplication(TouchApplication):
         t.setTextSize(1)
         t.setBtnTextSize(2)
         t.setPosButton(QCoreApplication.translate("m_about","Okay"))
-        (v1,v2)=t.exec_()         
+        (v1,v2)=t.exec_() 
+    
+    def on_menu_project(self):
+        fta=TouchAuxMultibutton(QCoreApplication.translate("m_project","Project"))
+        fta.setButtons([ QCoreApplication.translate("m_project","New"),
+                        "",
+                         QCoreApplication.translate("m_project","Load"),
+                         QCoreApplication.translate("m_project","Save")
+                        ]
+                      )
+        fta.setTextSize(3)
+        fta.setBtnTextSize(3)
+        (s,r)=fta.exec_()      
+        
+        if   r == QCoreApplication.translate("m_project","New"):    self.project_new()
+        elif r == QCoreApplication.translate("m_project","Load"):   self.project_load()
+        elif r == QCoreApplication.translate("m_project","Save"):   self.project_save()
+    
+    def project_new(self):
+        if not self.codeSaved:
+            t=TouchMessageBox(QCoreApplication.translate("m_project","New"), None)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_project","Current project was not saved. Do you want to discard it?"))
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_project","Yes"))
+            t.setNegButton(QCoreApplication.translate("m_project","No"))
+            (r,s)=t.exec_()
+            
+            if s !=  QCoreApplication.translate("m_project","Yes"): return
+        
+        self.proglist.clear()
+        self.code=[]
+        self.proglist.addItem("# new")
+        self.proglist.setCurrentRow(0)
+        
+        self.codeSaved=False
+        
+    def project_load(self):
+        if not self.codeSaved:
+            t=TouchMessageBox(QCoreApplication.translate("m_project","Load"), None)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_project","Current project was not saved. Do you want to discard it?"))
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_project","Yes"))
+            t.setNegButton(QCoreApplication.translate("m_project","No"))
+            (r,s)=t.exec_()
+            
+            if s !=  QCoreApplication.translate("m_project","Yes"): return
+        
+        # get list of projecs and query user
+        filelist=os.listdir(projdir)                          
+        if len(filelist)>0:
+            (s,r)=TouchAuxListRequester(QCoreApplication.translate("m_project","Load"),QCoreApplication.translate("ecl","Project"),filelist,filelist[0],"Okay").exec_()
+        else:
+            t=TouchMessageBox(QCoreApplication.translate("m_project","Load"), None)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_project","No saved projects found."))
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_project","Okay"))
+            (v1,v2)=t.exec_()   
+            s=False
+            
+        if not s: return
+    
+        with open(projdir+r,"r", encoding="utf-8") as f:
+            self.code=json.load(f)
+        
+        self.proglist.clear()
+        self.proglist.addItems(self.code)
+        
+        self.codeSaved=True
+        self.codeName=r
+
+    def project_save(self):
+        (s,r)=TouchAuxRequestText(QCoreApplication.translate("m_project","Save"),
+                            QCoreApplication.translate("m_project","Enter project file name:"),
+                            self.codeName,
+                            QCoreApplication.translate("m_project","Okay")
+                            ).exec_()
+        
+        if not s: return
+        pfn=r
+        if os.path.isfile(projdir+pfn):
+            t=TouchMessageBox(QCoreApplication.translate("m_project","Save"), None)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_project","A file with this name already exists. Do you want to overwrite it?"))
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_project","Yes"))
+            t.setNegButton(QCoreApplication.translate("m_project","No"))
+            (r,s)=t.exec_()
+            
+            if s !=  QCoreApplication.translate("m_project","Yes"): return
+        
+        self.codeFromListWidget()
+        
+        with open(projdir+pfn,"w", encoding="utf-8") as f:
+            
+            #f.writelines( l + "\n" for l in self.code)
+            json.dump(self.code,f)
+            f.close()
+    
+        self.codeSaved=True
     
     def on_menu_interfaces(self):
         
@@ -677,7 +724,7 @@ class FtcGuiApplication(TouchApplication):
         self.proglist.insertItem(self.proglist.currentRow()+1,code)
         self.proglist.setCurrentRow(self.proglist.currentRow()+1)
         self.progItemDoubleClicked()
-    
+        
     def acl_stop(self):
         self.acl("Stop")
     
@@ -698,12 +745,14 @@ class FtcGuiApplication(TouchApplication):
     
     def remCodeLine(self):
         row=self.proglist.currentRow()
-        del self.code[row]
+        #del self.code[row]
         void=self.proglist.takeItem(row)
-        if self.code==[]:
-            self.code=["# new"]
+        if self.proglist.count()==0:
+            #self.code=["# new"]
             self.proglist.addItem("# new")
             self.proglist.setCurrentRow(0)
+        
+        self.codeSaved=False
         
     def lineUp(self):
         pass
@@ -731,6 +780,7 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "Request":             itm=self.ecl_request()
         
         self.proglist.currentItem().setText(itm)
+        self.codeSaved=False
 
     def ecl_output(self):
         itm=self.proglist.currentItem().text()
@@ -750,32 +800,70 @@ class FtcGuiApplication(TouchApplication):
     def ecl_ifInputDig(self):
         itm=self.proglist.currentItem().text()
         return itm
+    
     def ecl_comment(self):
-        itm=self.proglist.currentItem().text()
-        return itm
+        itm=self.proglist.currentItem().text()[2:]
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Comment"),itm,self.parent()).exec_()
+        return "# "+t
+    
     def ecl_tag(self):
-        itm=self.proglist.currentItem().text()
-        return itm
+        itm=self.proglist.currentItem().text()[4:]
+        return "Tag "+clean(TouchAuxKeyboard(QCoreApplication.translate("ecl","Tag"),itm,self.parent()).exec_(),32)
+    
     def ecl_jump(self):
+        itm=self.proglist.currentItem().text()[5:]
+        tagteam=[]
+        for i in range(0,self.proglist.count()):
+            if "Tag" in self.proglist.item(i).text(): tagteam.append(self.proglist.item(i).text()[4:])
+  
+        if len(tagteam)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","Jump"), None)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return "Jump "+itm
+        
+        if not itm in tagteam: itm=tagteam[0]
+        (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","Jump"),QCoreApplication.translate("ecl","Target"),tagteam,itm,"Okay").exec_()
+        
+        if not s: return "Jump "+itm
+        return "Jump "+r
+        
+    def ecl_loopTo(self):
         itm=self.proglist.currentItem().text()
         return itm
-    def ecl_loopTo(self):
-        pass
+    
     def ecl_delay(self):
         itm=self.proglist.currentItem().text()
         return itm
+    
     def ecl_stop(self):
         itm=self.proglist.currentItem().text()
         return itm
+  
     def ecl_print(self):
         itm=self.proglist.currentItem().text()
         return itm
+    
     def ecl_message(self):
         itm=self.proglist.currentItem().text()
         return itm
+    
     def ecl_request(self):
         itm=self.proglist.currentItem().text()
         return itm
+    
+    
+def clean(text,maxlen):
+    res=""
+    valid="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_-."
+    for ch in text:
+        if ch in valid: res=res+ch
+    return res[:maxlen]
+
 
 if __name__ == "__main__":
     FtcGuiApplication(sys.argv)
