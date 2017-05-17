@@ -552,9 +552,9 @@ class FtcGuiApplication(TouchApplication):
         # get list of projecs and query user
         filelist=os.listdir(projdir)                          
         if len(filelist)>0:
-            (s,r)=TouchAuxListRequester(QCoreApplication.translate("m_project","Load"),QCoreApplication.translate("ecl","Project"),filelist,filelist[0],"Okay").exec_()
+            (s,r)=TouchAuxListRequester(QCoreApplication.translate("m_project","Delete"),QCoreApplication.translate("ecl","Project"),filelist,filelist[0],"Okay").exec_()
         else:
-            t=TouchMessageBox(QCoreApplication.translate("m_project","Load"), None)
+            t=TouchMessageBox(QCoreApplication.translate("m_project","Delete"), None)
             t.setCancelButton()
             t.setText(QCoreApplication.translate("m_project","No saved projects found."))
             t.setBtnTextSize(2)
