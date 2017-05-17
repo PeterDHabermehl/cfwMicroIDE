@@ -262,6 +262,94 @@ class execThread(QThread):
         
     def clrOut(self):
         self.clearText.emit()
+
+class editOutput(TouchDialog):
+    
+    def __init__(self, cmdline, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","Output"), parent)
+        
+        self.cmdline=cmdline
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+        
+        self.layout=QVBoxLayout()
+        
+        k1=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Device"))
+        l.setStyleSheet("font-size: 20px;")
+        
+        k1.addWidget(l)
+        
+        self.interface=QComboBox()
+        self.interface.setStyleSheet("font-size: 20px;")
+        self.interface.addItems(["RIF","TXT"])
+
+        if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(1)
+        self.interface.currentIndexChanged.connect(self.ifChanged)
+        k1.addWidget(self.interface)
+        
+        #self.layout.addStretch()
+        
+        k2=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Port"))
+        l.setStyleSheet("font-size: 20px;")
+        k2.addWidget(l)
+        
+        self.port=QComboBox()
+        self.port.setStyleSheet("font-size: 20px;")
+        self.port.addItems(["O 1","O 2","O 3","O 4","O 5","O 6","O 7","O 8"])
+
+        self.port.setCurrentIndex(int(self.cmdline.split()[2])-1)
+        k2.addWidget(self.port)
+        
+        k9=QHBoxLayout()
+        k9.addLayout(k1)
+        k9.addStretch()
+        k9.addLayout(k2)
+        
+        self.layout.addLayout(k9)
+        
+        l=QLabel(QCoreApplication.translate("ecl","Value"))
+        l.setStyleSheet("font-size: 20px;")
+        self.layout.addWidget(l)     
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 20px;")
+        self.value.setText(self.cmdline.split()[3])
+        self.value.mousePressEvent=self.getValue
+        self.layout.addWidget(self.value)
+        
+        self.layout.addStretch()
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="Output " +self.interface.currentText()+ " " + self.port.currentText()[2:] + " " + self.value.text()
+        self.close()
+    
+    def ifChanged(self):
+        self.valueChanged()
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Value"),a,self.parent()).exec_()
+        if not t.isnumeric(): t=a
+        self.value.setText(t)
+        self.valueChanged()
+        
+    def valueChanged(self):
+        if not self.value.text().isnumeric(): self.value.setText("0")
+        if self.interface.currentIndex==0: self.value.setText(str(max(0,min(7,int(self.value.text())))))
+        else: self.value.setText(str(max(0,min(511,int(self.value.text())))))
     
 class FtcGuiApplication(TouchApplication):
     response=pyqtSignal(int)
@@ -276,50 +364,13 @@ class FtcGuiApplication(TouchApplication):
         
         self.initIFs()
         
+        self.lastIF="TXT"
+        if self.RIF != None and self.TXT==None: self.lastIF="RIF"
+        
         #define variables for test
         
         self.code=["# new"]
-        
-        '''
-        self.code=["# head",
-                   "Print Es geht los!",
-                   "Motor RIF 1 r 7",
-                   "Delay 1000",
-                   "Motor RIF 1 l 7",
-                   "Delay 1000",
-                   "Motor RIF 1 s 0",
-                   "Delay 1000",
-                   "Print Pulse",
-                   "MotorPulsewheel RIF 1 None 2 l 7 3"                   
-                   ]
-                   
-        
-        self.code=["# Haendetrockner",
-                   "Print Pause",
-                   "Delay 2000",
-                   "Print Weiter",
-                   "Tag top",
-                   "Print La",
-                   "LoopTo top 2",
-                   "#",
-                   "# Lichschranke an",
-                   "Motor RIF 2 l 7",
-                   "# Beginn Endlosschleife",
-                   "Tag start",
-                   "# warte auf Lichtschranke",
-                   "WaitForInputDig RIF 1 Falling",
-                   "# Geblaese an",
-                   "Motor RIF 1 r 7",
-                   "# Warte auf Lichtschranke",
-                   "WaitForInputDig RIF 1 Raising",
-                   "# Geblaese aus",
-                   "Motor RIF 1 s 0",
-                   "# und wieder zum start",
-                   "Print Jump",
-                   "Jump start"
-                   ]
 
-        '''
         # would load presets here
         
         # open last project etc.
@@ -719,8 +770,7 @@ class FtcGuiApplication(TouchApplication):
             ftb.setBtnTextSize(3)
             (t,p)=ftb.exec_()
             if t:
-                if p== QCoreApplication.translate("addcodeline","Output"):
-                    pass
+                if p== QCoreApplication.translate("addcodeline","Output"):  self.acl_output()
                     
         elif r==QCoreApplication.translate("addcodeline","Controls"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Controls"))
@@ -752,13 +802,20 @@ class FtcGuiApplication(TouchApplication):
                           )
             ftb.setTextSize(3)
             ftb.setBtnTextSize(3)
-            (t,p)=ftb.exec_()             
+            (t,p)=ftb.exec_()
+            if t:
+                if   p==QCoreApplication.translate("addcodeline","Print"):      self.acl_print()
+                elif p==QCoreApplication.translate("addcodeline","Tag"):        self.acl_tag()
 
     def acl(self,code):
         self.proglist.insertItem(self.proglist.currentRow()+1,code)
         self.proglist.setCurrentRow(self.proglist.currentRow()+1)
         self.progItemDoubleClicked()
-        
+        self.lastIF=self.proglist.item(self.proglist.currentRow()).text().split()[1]
+    
+    def acl_output(self):
+        self.acl("Output " + self.lastIF + " 1 0")
+    
     def acl_stop(self):
         self.acl("Stop")
     
@@ -776,6 +833,9 @@ class FtcGuiApplication(TouchApplication):
     
     def acl_delay(self):
         self.acl("Delay 1000")
+    
+    def acl_print(self):
+        self.acl("Print ")
     
     def remCodeLine(self):
         row=self.proglist.currentRow()
@@ -817,8 +877,9 @@ class FtcGuiApplication(TouchApplication):
         self.codeSaved=False
 
     def ecl_output(self):
-        itm=self.proglist.currentItem().text()
-        return itm
+        #itm=self.proglist.currentItem().text()
+        return editOutput(self.proglist.currentItem().text()).exec_()
+    
     def ecl_motor(self):
         itm=self.proglist.currentItem().text()
         return itm
@@ -871,17 +932,21 @@ class FtcGuiApplication(TouchApplication):
         return itm
     
     def ecl_delay(self):
-        itm=self.proglist.currentItem().text()
-        return itm
-    
+        itm=self.proglist.currentItem().text()[6:]
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Delay"),itm,self.parent()).exec_()
+        try:
+            return "Delay "+str(int(t))
+        except:
+            pass
+        return "Delay "+itm
+        
     def ecl_stop(self):
-        itm=self.proglist.currentItem().text()
-        return itm
-  
+        return self.proglist.currentItem().text()
+
     def ecl_print(self):
-        itm=self.proglist.currentItem().text()
-        return itm
-    
+        itm=self.proglist.currentItem().text()[6:]
+        return "Print "+TouchAuxKeyboard(QCoreApplication.translate("ecl","Delay"),itm,self.parent()).exec_()
+        
     def ecl_message(self):
         itm=self.proglist.currentItem().text()
         return itm
