@@ -576,6 +576,8 @@ class FtcGuiApplication(TouchApplication):
         
         os.remove(projdir+r)
         
+        if self.codeName==r: self.codeSaved=False
+        
     def on_menu_interfaces(self):
         
         self.initIFs()
