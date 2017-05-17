@@ -448,7 +448,9 @@ class FtcGuiApplication(TouchApplication):
         fta.setButtons([ QCoreApplication.translate("m_project","New"),
                         "",
                          QCoreApplication.translate("m_project","Load"),
-                         QCoreApplication.translate("m_project","Save")
+                         QCoreApplication.translate("m_project","Save"),
+                        "",
+                         QCoreApplication.translate("m_project","Delete")
                         ]
                       )
         fta.setTextSize(3)
@@ -458,6 +460,7 @@ class FtcGuiApplication(TouchApplication):
         if   r == QCoreApplication.translate("m_project","New"):    self.project_new()
         elif r == QCoreApplication.translate("m_project","Load"):   self.project_load()
         elif r == QCoreApplication.translate("m_project","Save"):   self.project_save()
+        elif r == QCoreApplication.translate("m_project","Delete"): self.project_delete()
     
     def project_new(self):
         if not self.codeSaved:
@@ -544,6 +547,35 @@ class FtcGuiApplication(TouchApplication):
     
         self.codeSaved=True
     
+    def project_delete(self):
+ 
+        # get list of projecs and query user
+        filelist=os.listdir(projdir)                          
+        if len(filelist)>0:
+            (s,r)=TouchAuxListRequester(QCoreApplication.translate("m_project","Load"),QCoreApplication.translate("ecl","Project"),filelist,filelist[0],"Okay").exec_()
+        else:
+            t=TouchMessageBox(QCoreApplication.translate("m_project","Load"), None)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_project","No saved projects found."))
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_project","Okay"))
+            (v1,v2)=t.exec_()   
+            s=False
+            
+        if not s: return
+        
+        t=TouchMessageBox(QCoreApplication.translate("m_project","Delete"), None)
+        t.setCancelButton()
+        t.setText(QCoreApplication.translate("m_project","Do you really want to permanently delete this project?")+"<br>"+r)
+        t.setBtnTextSize(2)
+        t.setPosButton(QCoreApplication.translate("m_project","Yes"))
+        t.setNegButton(QCoreApplication.translate("m_project","No"))
+        (v1,v2)=t.exec_()
+            
+        if v2 !=  QCoreApplication.translate("m_project","Yes"): return
+        
+        os.remove(projdir+r)
+        
     def on_menu_interfaces(self):
         
         self.initIFs()
