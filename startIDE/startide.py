@@ -957,16 +957,23 @@ class FtcGuiApplication(TouchApplication):
         self.lastIF="TXT"
         if self.RIF != None and self.TXT==None: self.lastIF="RIF"
         
-        #define variables for test
+        # load last project
         
-        self.code=["# new"]
-        
-        # would load presets here
-        
-        # open last project etc.
-        
-        self.codeSaved=True
-        self.codeName="startIDE"
+        try:
+            with open(hostdir+".lastproject","r", encoding="utf-8") as f:
+                [self.codeName,self.codeSaved]=json.load(f)
+            
+            if not self.codeSaved:
+                with open(hostdir+".autosave","r", encoding="utf-8") as f:
+                    self.code=json.load(f)                
+                os.remove(hostdir+".autosave")
+            else:
+                with open(projdir+self.codeName,"r", encoding="utf-8") as f:
+                    self.code=json.load(f)
+        except:
+            self.code=["# new"]
+            self.codeSaved=True
+            self.codeName="startIDE"        
         
         self.n=0
         
@@ -1074,6 +1081,17 @@ class FtcGuiApplication(TouchApplication):
     
     def closed(self):
         if self.start==True: self.startStop()
+        
+        self.codeFromListWidget()
+        
+        if not self.codeSaved:
+            with open(hostdir+".autosave","w", encoding="utf-8") as f:
+                json.dump(self.code,f)
+                f.close()           
+        
+        with open(hostdir+".lastproject", "w", encoding="utf-8") as f:
+            json.dump([self.codeName, self.codeSaved],f)
+
 
     def on_menu_about(self):
         t=TouchMessageBox(QCoreApplication.translate("m_about","About"), self.mainwindow)
