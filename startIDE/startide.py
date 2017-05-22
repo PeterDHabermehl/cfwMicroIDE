@@ -471,8 +471,11 @@ class editIfInputDig(TouchDialog):
         self.tags=QListWidget()
         self.tags.setStyleSheet("font-size: 20px;")
         self.tags.addItems(self.taglist)
+
         try:
-            if self.cmdline.split()[4] in self.taglist: self.tags.setCurrentRow(self.cmdline.split()[4])
+            if self.cmdline.split()[4] in self.taglist:
+                for i in range(self.tags.count()):
+                    if self.cmdline.split()[4]==self.tags.item(i).text(): self.tags.setCurrentRow(i)
         except:
             self.tags.setCurrentRow(0)
             
