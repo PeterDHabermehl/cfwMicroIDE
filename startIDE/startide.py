@@ -9,10 +9,13 @@ from robointerface import *
 from datetime import datetime
 
 hostdir = os.path.dirname(os.path.realpath(__file__)) + "/"
-projdir = hostdir + "/projects/"
+projdir = hostdir + "projects/"
+moddir  = hostdir + "modules/"
 
 if not os.path.exists(projdir):
     os.mkdir(projdir)
+if not os.path.exists(moddir):
+    os.mkdir(moddir)
     
 try:
     with open(hostdir+"manifest","r") as f:
@@ -989,10 +992,15 @@ class FtcGuiApplication(TouchApplication):
         # add a menu
         
         self.menu=self.mainwindow.addMenu()
-        self.menu.setStyleSheet("font-size: 20px;")
+        self.menu.setStyleSheet("font-size: 24px;")
                 
         self.m_project = self.menu.addAction(QCoreApplication.translate("mmain","Project"))
-        self.m_project.triggered.connect(self.on_menu_project)     
+        self.m_project.triggered.connect(self.on_menu_project) 
+        
+        self.menu.addSeparator()
+        
+        self.m_modules = self.menu.addAction(QCoreApplication.translate("mmain","Modules"))
+        self.m_modules.triggered.connect(self.on_menu_modules)
         
         self.menu.addSeparator()
         
@@ -1119,7 +1127,7 @@ class FtcGuiApplication(TouchApplication):
         if   r == QCoreApplication.translate("m_project","New"):    self.project_new()
         elif r == QCoreApplication.translate("m_project","Load"):   self.project_load()
         elif r == QCoreApplication.translate("m_project","Save"):   self.project_save()
-        elif r == QCoreApplication.translate("m_project","Delete"): self.project_delete()
+        elif r == QCoreApplication.translate("m_project","Delete"): self.project_delete()   
     
     def project_new(self):
         if not self.codeSaved:
@@ -1237,7 +1245,31 @@ class FtcGuiApplication(TouchApplication):
         os.remove(projdir+r)
         
         if self.codeName==r: self.codeSaved=False
+
+    def on_menu_modules(self):
+        fta=TouchAuxMultibutton(QCoreApplication.translate("m_project","Modules"), self.mainwindow)
+        fta.setButtons([ QCoreApplication.translate("m_project","Import"),
+                         QCoreApplication.translate("m_project","Export"),
+                        "",
+                         QCoreApplication.translate("m_project","Delete")
+                        ]
+                      )
+        fta.setTextSize(3)
+        fta.setBtnTextSize(3)
+        (s,r)=fta.exec_()      
         
+        if   r == QCoreApplication.translate("m_project","Import"):    self.modules_import()
+        elif r == QCoreApplication.translate("m_project","Export"):    self.modules_export()
+        elif r == QCoreApplication.translate("m_project","Delete"):    self.modules_delete()
+    
+    def modules_import(self):
+        pass
+    def modules_export(self):
+        pass
+    def modules_delete(self):
+        pass
+
+
     def on_menu_interfaces(self):
         
         self.initIFs()
