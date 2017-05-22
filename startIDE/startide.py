@@ -6,6 +6,7 @@ import threading as thd
 from TouchStyle import *
 from TouchAuxiliary import *
 from robointerface import *
+from datetime import datetime
 
 hostdir = os.path.dirname(os.path.realpath(__file__)) + "/"
 projdir = hostdir + "/projects/"
@@ -24,8 +25,7 @@ try:
         else: vstring=""
         f.close()
 except:
-    vstring="n/a"
-    
+    vstring="n/a"    
     
 
 class QDblPushButton(QPushButton):
@@ -53,7 +53,7 @@ class execThread(QThread):
     execThreadFinished=pyqtSignal()
     showMessage=pyqtSignal(str)
     
-    def __init__(self, codeList, output, starter, RIF,TXT, parent=None):
+    def __init__(self, codeList, output, starter, RIF,TXT, parent):
         QThread.__init__(self, parent)
         
         self.codeList=codeList
@@ -64,9 +64,10 @@ class execThread(QThread):
         
         self.RIF=RIF
         self.TXT=TXT
+        self.parent=parent
         
     def run(self):
-                
+
         self.halt=False
         
         self.requireTXT=False
@@ -74,17 +75,23 @@ class execThread(QThread):
         
         self.jmpTable=[]
         self.LoopStack=[]
+        self.modTable=[]
+        self.modStack=[]
         
         cnt=0
         
-        # scan code for interfaces and jump tags
+        # scan code for interfaces, jump and module tags
         for line in self.codeList:
             if "TXT" in line: self.requireTXT=True
             if "RIF" in line: self.requireRIF=True
             if "Tag" in line: 
                 self.jmpTable.append([line[4:], cnt])
+            elif "Module" in line:
+                self.modTable.append([line[7:], cnt])
             cnt=cnt+1
-    
+
+        self.clrOut()
+        
         if self.requireTXT and self.TXT==None:
             self.msgOut(QCoreApplication.translate("exec","TXT not found!\nProgram terminated\n"))
             self.stop()
@@ -93,14 +100,15 @@ class execThread(QThread):
             self.stop()
         
         if not self.halt:
-            self.clrOut()
             self.msgOut("<Start>")
             self.count=0
+        self.parent.processEvents()        
         
         while not self.halt and self.count<len(self.codeList):
             line=self.codeList[self.count]
             self.parseLine(line)
             self.count=self.count+1
+            self.parent.processEvents()
         
         if not self.halt: self.msgOut("<End>")
         
@@ -139,7 +147,11 @@ class execThread(QThread):
         elif stack[0]== "WaitInDig": self.cmdWaitForInputDig(stack)
         elif stack[0]== "IfInDig": self.cmdIfInputDig(stack)
         elif stack[0]== "Print": self.cmdPrint(line[6:])
+        elif stack[0]== "Clear": self.clrOut()
         elif stack[0]== "Message": self.cmdMessage(line[8:])
+        elif stack[0]== "Module": self.count=len(self.codeList)
+        elif stack[0]== "Call": self.cmdCall(stack)
+        elif stack[0]== "Return": self.cmdReturn()
         
     def cmdOutput(self, stack):
         if stack[1]=="RIF":
@@ -221,19 +233,38 @@ class execThread(QThread):
                 self.count=tgt
             
     def cmdWaitForInputDig(self,stack):
+        self.tOut=False
+        self.tAct=False
+        
+        if len(stack)>4:
+            if stack[4].isnumeric():
+                if int(stack[4])>0:
+                    self.timer = QTimer()
+                    self.timer.setSingleShot(True)
+                    self.timer.timeout.connect(self.timerstop)
+                    self.timer.start(int(stack[4]))  
+                    self.tAct=True
+
         if stack[1]=="RIF":
             if stack[3]=="Raising":
                 a=self.RIF.Digital(int(stack[2]))
                 b=a
-                while not (b<a or self.halt): 
+                while not (b<a or self.halt or self.tOut ): 
                     b=a
                     a=self.RIF.Digital(int(stack[2]))
+                    self.parent.processEvents()
             elif stack[3]=="Falling":
                 a=self.RIF.Digital(int(stack[2]))
                 b=a
-                while not (b>a or self.halt): 
+                while not (b>a or self.halt or self.tOut ): 
                     b=a
                     a=self.RIF.Digital(int(stack[2]))
+                    self.parent.processEvents()
+        if self.tAct:
+            self.timer.stop()
+    
+    def timerstop(self):
+        self.tOut=True            
     
     def cmdIfInputDig(self,stack):
         if stack[1]=="RIF":
@@ -241,14 +272,35 @@ class execThread(QThread):
                 n=-1
                 for line in self.jmpTable:
                     if stack[4]==line[0]: n=line[1]
+
                 if n==-1:
                     self.msgOut("IfInputDig jump tag not found!")
                     self.halt=True
                 else:
                     self.count=n
 
+    def cmdCall(self, stack):
+        n=-1
+        for line in self.modTable:
+            if stack[1]==line[0]: n=line[1]
+        
+        if n==-1:
+            self.msgOut("Call module not found!")
+            self.halt=True
+        else:
+            self.modStack.append(self.count)
+            self.count=n
+
+    def cmdReturn(self):
+        try:
+            self.count=self.modStack.pop()#[1]
+        except:
+            self.msgOut("Return without Call!")
+            self.halt=True
+    
     def cmdPrint(self, message):
         self.msgOut(message)
+        time.sleep(0.005)
     
     def cmdMessage(self, rawline):
         self.msg=0
@@ -262,6 +314,7 @@ class execThread(QThread):
         
     def clrOut(self):
         self.clearText.emit()
+        time.sleep(0.005)
 
 class editWaitForInputDig(TouchDialog):
     def __init__(self, cmdline, parent):
@@ -324,14 +377,34 @@ class editWaitForInputDig(TouchDialog):
         
         self.layout.addStretch()
         
+        l=QLabel(QCoreApplication.translate("ecl","Timeout"))
+        l.setStyleSheet("font-size: 20px;")
+        self.layout.addWidget(l)     
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 20px;")
+        self.value.setText(self.cmdline.split()[4])
+        self.value.mousePressEvent=self.getValue
+        self.layout.addWidget(self.value)
+        
+        self.layout.addStretch()
+        
         self.centralWidget.setLayout(self.layout)
         
         TouchDialog.exec_(self)
         return self.cmdline
     
     def on_confirm(self):
-        self.cmdline="WaitInDig " +self.interface.currentText()+ " " + self.port.currentText()[2:] + " " + self.thd.currentText()
+        self.cmdline="WaitInDig " +self.interface.currentText()+ " " + self.port.currentText()[2:] + " " + self.thd.currentText() + " " + self.value.text()
         self.close()
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","TOut"),a,None).exec_()
+        if not t.isnumeric(): t=a
+        t=str(max(min(int(t),99999),0))
+        self.value.setText(t)
 
 class editIfInputDig(TouchDialog):
     def __init__(self, cmdline, taglist, parent):
@@ -801,9 +874,72 @@ class editMotorPulsewheel(TouchDialog):
         if self.interface.currentIndex()==0: self.value.setText(str(max(0,min(7,int(self.value.text())))))
         else: self.value.setText(str(max(0,min(511,int(self.value.text())))))   
         
+class editLoopTo(TouchDialog):
+    def __init__(self, cmdline, taglist, parent):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","LoopTo"), parent)
+        
+        self.cmdline=cmdline
+        self.taglist=taglist
     
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+        
+        self.layout=QVBoxLayout()
+        
+
+        l=QLabel(QCoreApplication.translate("ecl", "Loop target"))
+        l.setStyleSheet("font-size: 20px;")
+        self.layout.addWidget(l)
+        
+        self.tags=QListWidget()
+        self.tags.setStyleSheet("font-size: 20px;")
+        self.tags.addItems(self.taglist)
+        try:
+            if self.cmdline.split()[1] in self.taglist: self.tags.setCurrentRow(self.cmdline.split()[1])
+        except:
+            self.tags.setCurrentRow(0)
+            
+        self.layout.addWidget(self.tags)
+        
+        self.layout.addStretch()
+
+        l=QLabel(QCoreApplication.translate("ecl", "Count"))
+        l.setStyleSheet("font-size: 20px;")
+        self.layout.addWidget(l)
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 20px;")
+        self.value.setText(self.cmdline.split()[2])
+        self.value.mousePressEvent=self.getValue
+        self.layout.addWidget(self.value)
+        
+        self.layout.addStretch()
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="LoopTo " +self.tags.item(self.tags.currentRow()).text()+ " " + self.value.text()
+        self.close()
+        
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","TOut"),a,None).exec_()
+        if not t.isnumeric(): t=a
+        t=str(max(min(int(t),99999),0))
+        self.value.setText(t)
+        
+        
 class FtcGuiApplication(TouchApplication):
     response=pyqtSignal(int)
+    wfiTimerStopped=pyqtSignal()
     
     def __init__(self, args):
         TouchApplication.__init__(self, args)
@@ -821,7 +957,7 @@ class FtcGuiApplication(TouchApplication):
         #define variables for test
         
         self.code=["# new"]
-
+        
         # would load presets here
         
         # open last project etc.
@@ -996,7 +1132,8 @@ class FtcGuiApplication(TouchApplication):
             if s !=  QCoreApplication.translate("m_project","Yes"): return
         
         # get list of projecs and query user
-        filelist=os.listdir(projdir)                          
+        filelist=os.listdir(projdir)
+        filelist.sort()
         if len(filelist)>0:
             (s,r)=TouchAuxListRequester(QCoreApplication.translate("m_project","Load"),QCoreApplication.translate("ecl","Project"),filelist,filelist[0],"Okay",self.mainwindow).exec_()
         else:
@@ -1043,12 +1180,12 @@ class FtcGuiApplication(TouchApplication):
         
         with open(projdir+pfn,"w", encoding="utf-8") as f:
             
-            #f.writelines( l + "\n" for l in self.code)
             json.dump(self.code,f)
             f.close()
     
         self.codeSaved=True
-    
+        self.codeName=pfn
+        
     def project_delete(self):
  
         # get list of projecs and query user
@@ -1137,7 +1274,7 @@ class FtcGuiApplication(TouchApplication):
             if self.start:
                 self.codeFromListWidget()
                 self.setMainWindow(False)
-                self.et = execThread(self.code, self.output, self.starter, self.RIF, self.TXT)
+                self.et = execThread(self.code, self.output, self.starter, self.RIF, self.TXT, self)
                 self.et.updateText.connect(self.updateText)
                 self.et.clearText.connect(self.clearText)
                 self.et.execThreadFinished.connect(self.execThreadFinished)
@@ -1196,6 +1333,7 @@ class FtcGuiApplication(TouchApplication):
         fta.setButtons([ QCoreApplication.translate("addcodeline","Inputs"),
                          QCoreApplication.translate("addcodeline","Outputs"),
                          QCoreApplication.translate("addcodeline","Controls"),
+                         QCoreApplication.translate("addcodeline","Modules"),
                          QCoreApplication.translate("addcodeline","Interaction")
                         ]
                       )
@@ -1251,10 +1389,26 @@ class FtcGuiApplication(TouchApplication):
                 elif p==QCoreApplication.translate("addcodeline","LoopTo"):     self.acl_loopTo()
                 elif p==QCoreApplication.translate("addcodeline","Delay"):      self.acl_delay()
                 elif p==QCoreApplication.translate("addcodeline","Stop"):       self.acl_stop()
+        
+        elif r==QCoreApplication.translate("addcodeline","Modules"):
+            ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Modules"), self.mainwindow)
+            ftb.setButtons([ QCoreApplication.translate("addcodeline","Call"),
+                             QCoreApplication.translate("addcodeline","Module"),
+                             QCoreApplication.translate("addcodeline","Return")
+                            ]
+                          )
+            ftb.setTextSize(3)
+            ftb.setBtnTextSize(3)
+            (t,p)=ftb.exec_()
+            if t:
+                if   p==QCoreApplication.translate("addcodeline","Call"):     self.acl_call()
+                elif p==QCoreApplication.translate("addcodeline","Module"):   self.acl_module()
+                elif p==QCoreApplication.translate("addcodeline","Return"):   self.acl_return()
                             
         elif r==QCoreApplication.translate("addcodeline","Interaction"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Interact"), self.mainwindow)
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Print"),
+                             QCoreApplication.translate("addcodeline","Clear"),
                              QCoreApplication.translate("addcodeline","Message"),
                              QCoreApplication.translate("addcodeline","Request")
                             ]
@@ -1264,16 +1418,20 @@ class FtcGuiApplication(TouchApplication):
             (t,p)=ftb.exec_()
             if t:
                 if   p==QCoreApplication.translate("addcodeline","Print"):      self.acl_print()
-                elif p==QCoreApplication.translate("addcodeline","Tag"):        self.acl_tag()
+                elif p==QCoreApplication.translate("addcodeline","Clear"):        self.acl_clear()
 
     def acl(self,code):
         self.proglist.insertItem(self.proglist.currentRow()+1,code)
         self.proglist.setCurrentRow(self.proglist.currentRow()+1)
         self.progItemDoubleClicked()
-        self.lastIF=self.proglist.item(self.proglist.currentRow()).text().split()[1]
-    
+        try:
+            s=self.proglist.item(self.proglist.currentRow()).text().split()[1]
+            if s=="RIF" or s=="TXT": self.lastIF=s
+        except:
+            pass
+        
     def acl_waitForInputDig(self):
-        self.acl("WaitInDig " + self.lastIF + " 1 Raising")
+        self.acl("WaitInDig " + self.lastIF + " 1 Raising 0")
     
     def acl_ifInputDig(self):
         self.acl("IfInDig " + self.lastIF + " 1 True")
@@ -1300,20 +1458,30 @@ class FtcGuiApplication(TouchApplication):
         self.acl("Jump ")
     
     def acl_loopTo(self):
-        self.acl("LoopTo ")
+        self.acl("LoopTo ? 2")
     
     def acl_delay(self):
         self.acl("Delay 1000")
     
+    def acl_call(self):
+        self.acl("Call ")
+        
+    def acl_module(self):
+        self.acl("Module ")        
+        
+    def acl_return(self):
+        self.acl("Return")
+    
     def acl_print(self):
         self.acl("Print ")
     
+    def acl_clear(self):
+        self.acl("Clear")
+    
     def remCodeLine(self):
         row=self.proglist.currentRow()
-        #del self.code[row]
         void=self.proglist.takeItem(row)
         if self.proglist.count()==0:
-            #self.code=["# new"]
             self.proglist.addItem("# new")
             self.proglist.setCurrentRow(0)
         
@@ -1341,6 +1509,8 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "LoopTo":     itm=self.ecl_loopTo(itm)
         elif stack[0] == "Delay":      itm=self.ecl_delay(itm)
         elif stack[0] == "Stop":       itm=self.ecl_stop(itm)
+        elif stack[0] == "Call":       itm=self.ecl_call(itm)
+        elif stack[0] == "Module":     itm=self.ecl_module(itm)
         elif stack[0] == "Print":      itm=self.ecl_print(itm)
         elif stack[0] == "Message":    itm=self.ecl_message(itm)
         elif stack[0] == "Request":    itm=self.ecl_request(itm)
@@ -1410,7 +1580,21 @@ class FtcGuiApplication(TouchApplication):
         return "Jump "+r
         
     def ecl_loopTo(self, itm):
-        return itm
+        tagteam=[]
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="Tag": tagteam.append(self.proglist.item(i).text()[4:])
+  
+        if len(tagteam)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","LoopTo"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
+        
+        return editLoopTo(itm,tagteam,self.mainwindow).exec_()
     
     def ecl_delay(self, itm):
         t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Delay"),itm[6:],self.mainwindow).exec_()
@@ -1422,6 +1606,31 @@ class FtcGuiApplication(TouchApplication):
         
     def ecl_stop(self, itm):
         return itm
+    
+    def ecl_module(self, itm):
+        return "Module "+clean(TouchAuxKeyboard(QCoreApplication.translate("ecl","Module"),itm[7:],self.mainwindow).exec_(),32)
+    
+    def ecl_call(self, itm):
+        itm=itm[5:]
+        tagteam=[]
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="Module": tagteam.append(self.proglist.item(i).text()[7:])
+  
+        if len(tagteam)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","Call"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Modules defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return "Call "+itm
+        
+        if not itm in tagteam: itm=tagteam[0]
+        (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","Call"),QCoreApplication.translate("ecl","Target"),tagteam,itm,"Okay", self.mainwindow).exec_()
+        
+        if not s: return "Call "+itm
+        return "Call "+r    
 
     def ecl_print(self, itm):
         return "Print "+TouchAuxKeyboard(QCoreApplication.translate("ecl","Delay"),itm[6:],self.mainwindow).exec_()
