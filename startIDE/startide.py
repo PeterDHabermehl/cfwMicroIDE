@@ -70,8 +70,13 @@ class execThread(QThread):
         self.parent=parent
         
     def run(self):
-
+        
+        self.parent.outputClicked.connect(self.goOn)
+        
         self.halt=False
+        self.trace=False
+        self.singlestep=False
+        self.nextStep=False
         
         self.requireTXT=False
         self.requireRIF=False
@@ -109,7 +114,14 @@ class execThread(QThread):
         
         while not self.halt and self.count<len(self.codeList):
             line=self.codeList[self.count]
+            if self.trace: self.cmdPrint(str(self.count)+":"+line)
             self.parseLine(line)
+            if self.singlestep:
+                while not self.nextStep and not self.halt:
+                    self.parent.processEvents()
+                    time.sleep(0.005)
+                self.nextStep=False
+                
             self.count=self.count+1
             self.parent.processEvents()
         
@@ -129,7 +141,9 @@ class execThread(QThread):
     
         self.halt = True
         self.wait()
-
+    
+    def goOn(self):
+        self.nextStep=True
     
     def stop(self):
         self.halt=True
@@ -139,7 +153,13 @@ class execThread(QThread):
         
     def parseLine(self,line):
         stack=line.split()
-        if stack[0]  == "#": pass
+        if stack[0]  == "#":
+            if "TRACEON" in line:    self.trace=True
+            elif "TRACEOFF" in line: self.trace=False
+            if "STEPON" in line:     
+                self.singlestep=True
+                self.cmdPrint("STEPON: tap screen!")
+            elif "STEPOFF" in line:  self.singlestep=False
         elif stack[0]== "Stop": self.count=len(self.codeList)
         elif stack[0]== "Output": self.cmdOutput(stack)
         elif stack[0]== "Motor": self.cmdMotor(stack)
@@ -155,6 +175,7 @@ class execThread(QThread):
         elif stack[0]== "Module": self.count=len(self.codeList)
         elif stack[0]== "Call": self.cmdCall(stack)
         elif stack[0]== "Return": self.cmdReturn()
+        elif stack[0]== "MEnd": self.cmdMEnd()
         
     def cmdOutput(self, stack):
         if stack[1]=="RIF":
@@ -227,7 +248,7 @@ class execThread(QThread):
         if not found:
             tgt=-1
             for line in self.jmpTable:
-                if stack[1]==line[0]: tgt=line[1]
+                if stack[1]==line[0]: tgt=line[1]-1
             if tgt==-1:
                 self.msgOut("LoopTo tag not found!")
                 self.halt=True
@@ -274,7 +295,7 @@ class execThread(QThread):
             if (stack[3]=="True" and self.RIF.Digital(int(stack[2]))) or (stack[3]=="False" and not self.RIF.Digital(int(stack[2]))):
                 n=-1
                 for line in self.jmpTable:
-                    if stack[4]==line[0]: n=line[1]
+                    if stack[4]==line[0]: n=line[1]-1
 
                 if n==-1:
                     self.msgOut("IfInputDig jump tag not found!")
@@ -299,6 +320,13 @@ class execThread(QThread):
             self.count=self.modStack.pop()#[1]
         except:
             self.msgOut("Return without Call!")
+            self.halt=True
+            
+    def cmdMEnd(self):
+        try:
+            self.count=self.modStack.pop()#[1]
+        except:
+            self.msgOut("Unexpected MEnd!")
             self.halt=True
     
     def cmdPrint(self, message):
@@ -711,11 +739,6 @@ class editMotorPulsewheel(TouchDialog):
         self.titlebar.setCancelButton()
         
         self.layout=QVBoxLayout()
-
-        #l=QLabel(QCoreApplication.translate("ecl", "with Pulsewheel"))
-        #l.setStyleSheet("font-size: 20px;")        
-        #self.layout.addWidget(l)
-        #self.layout.addStretch()
         
         k1=QVBoxLayout()
         l=QLabel(QCoreApplication.translate("ecl", "Device"))
@@ -944,13 +967,13 @@ class editLoopTo(TouchDialog):
         
         
 class FtcGuiApplication(TouchApplication):
-    response=pyqtSignal(int)
-    wfiTimerStopped=pyqtSignal()
+    outputClicked=pyqtSignal(int)
     
     def __init__(self, args):
         TouchApplication.__init__(self, args)
         
         # some init
+        
         self.RIF=None
         self.TXT=None
         self.etf=False
@@ -1034,11 +1057,13 @@ class FtcGuiApplication(TouchApplication):
         # alternate output text field
         
         self.output=QListWidget()
-        self.output.setStyleSheet("font-family: 'Monospace'; font-size: 20px;")
+        self.output.setStyleSheet("font-family: 'Monospace'; font-size: 18px;")
         self.output.setSelectionMode(0)
         self.output.setVerticalScrollMode(1)
         self.output.setHorizontalScrollMode(1)
-        
+        self.output.mousePressEvent=self.outputClicked.emit
+        #self.output.clicked.connect(self.outputClicked.emit)
+        #self.mainwindow.titlebar. .connect(self.outputClicked.emit)
         l.addWidget(self.output)
         self.output.hide()
         
@@ -1147,6 +1172,7 @@ class FtcGuiApplication(TouchApplication):
         self.proglist.setCurrentRow(0)
         
         self.codeSaved=False
+        self.codeName="Unnamed"
         
     def project_load(self):
         if not self.codeSaved:
@@ -1382,7 +1408,7 @@ class FtcGuiApplication(TouchApplication):
 
     def addCodeLine(self):
         fta=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Add line"), self.mainwindow)
-        fta.setText(QCoreApplication.translate("addcodeline","Select command type:"))
+        fta.setText(QCoreApplication.translate("addcodeline","Select new:"))
         fta.setButtons([ QCoreApplication.translate("addcodeline","Inputs"),
                          QCoreApplication.translate("addcodeline","Outputs"),
                          QCoreApplication.translate("addcodeline","Controls"),
@@ -1446,8 +1472,9 @@ class FtcGuiApplication(TouchApplication):
         elif r==QCoreApplication.translate("addcodeline","Modules"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Modules"), self.mainwindow)
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Call"),
+                             QCoreApplication.translate("addcodeline","Return"),
                              QCoreApplication.translate("addcodeline","Module"),
-                             QCoreApplication.translate("addcodeline","Return")
+                             QCoreApplication.translate("addcodeline","MEnd")
                             ]
                           )
             ftb.setTextSize(3)
@@ -1455,8 +1482,9 @@ class FtcGuiApplication(TouchApplication):
             (t,p)=ftb.exec_()
             if t:
                 if   p==QCoreApplication.translate("addcodeline","Call"):     self.acl_call()
-                elif p==QCoreApplication.translate("addcodeline","Module"):   self.acl_module()
                 elif p==QCoreApplication.translate("addcodeline","Return"):   self.acl_return()
+                elif p==QCoreApplication.translate("addcodeline","Module"):   self.acl_module()
+                elif p==QCoreApplication.translate("addcodeline","MEnd"):   self.acl_mend()
                             
         elif r==QCoreApplication.translate("addcodeline","Interaction"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Interact"), self.mainwindow)
@@ -1518,12 +1546,15 @@ class FtcGuiApplication(TouchApplication):
     
     def acl_call(self):
         self.acl("Call ")
+
+    def acl_return(self):
+        self.acl("Return")
         
     def acl_module(self):
         self.acl("Module ")        
         
-    def acl_return(self):
-        self.acl("Return")
+    def acl_mend(self):
+        self.acl("MEnd")
     
     def acl_print(self):
         self.acl("Print ")
@@ -1686,7 +1717,7 @@ class FtcGuiApplication(TouchApplication):
         return "Call "+r    
 
     def ecl_print(self, itm):
-        return "Print "+TouchAuxKeyboard(QCoreApplication.translate("ecl","Delay"),itm[6:],self.mainwindow).exec_()
+        return "Print "+TouchAuxKeyboard(QCoreApplication.translate("ecl","Print"),itm[6:],self.mainwindow).exec_()
         
     def ecl_message(self, itm):
         return itm
