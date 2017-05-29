@@ -6,6 +6,7 @@ import threading as thd
 from TouchStyle import *
 from TouchAuxiliary import *
 from robointerface import *
+import ftrobopy as txt
 from datetime import datetime
 
 hostdir = os.path.dirname(os.path.realpath(__file__)) + "/"
@@ -87,25 +88,133 @@ class execThread(QThread):
         self.modStack=[]
         
         cnt=0
+        mcnt=0
+        rif_m=[False, False, False, False]
+        rif_o=[False, False, False, False, False, False, False, False]
+        txt_m=[False, False, False, False]
+        txt_o=[False, False, False, False, False, False, False, False]
         
-        # scan code for interfaces, jump and module tags
+        rif_i=[False, False, False, False, False, False, False, False]
+        txt_i=[False, False, False, False, False, False, False, False]
+        
+        # scan code for interfaces, jump and module tags, output and motor channels
+        
         for line in self.codeList:
-            if "TXT" in line: self.requireTXT=True
-            if "RIF" in line: self.requireRIF=True
-            if "Tag" in line: 
+            a=line.split()
+            if "TXT" in line:
+                self.requireTXT=True
+            if "RIF" in line:
+                self.requireRIF=True
+            if "Tag" in line[:3]: 
                 self.jmpTable.append([line[4:], cnt])
-            elif "Module" in line:
+            elif "Module" in line[:6]:
                 self.modTable.append([line[7:], cnt])
+                mcnt=mcnt+1
+            elif "MEnd" in line[:4]:
+                mcnt=mcnt-1
+            if len(a)>2:
+                if ("Output"==a[0]) or ("WaitIn" in a[0]) or ("IfIn" in a[0]) or ("Motor" in a[0]):
+                    if a[1]=="RIF": 
+                        if ("Motor" in a[0]):
+                            rif_m[int(a[2])-1]=True
+                        elif ("Output" in a[0]):
+                            rif_o[int(a[2])-1]=True
+                        elif ("IfInDig"==a[0]) or ("WaitInDig"==a[0]):
+                            rif_i[int(a[2])-1]=True
+                        if "MotorP"==a[0]:
+                            rif_i[int(a[3])-1]=True
+                            rif_i[int(a[4])-1]=True
+                    elif a[1]=="TXT":
+                        if ("Motor" in a[0]):
+                            txt_m[int(a[2])-1]=True
+                        elif ("Output" in a[0]):
+                            txt_o[int(a[2])-1]=True
+                        elif ("IfInDig"==a[0]) or ("WaitInDig"==a[0]):
+                            txt_i[int(a[2])-1]=True
+                        if "MotorP"==a[0]:
+                            txt_i[int(a[3])-1]=True
+                            txt_i[int(a[4])-1]=True
             cnt=cnt+1
-
+        
         self.clrOut()
         
         if self.requireTXT and self.TXT==None:
             self.msgOut(QCoreApplication.translate("exec","TXT not found!\nProgram terminated\n"))
             self.stop()
-        if self.requireRIF and self.RIF==None:
+        elif self.requireRIF and self.RIF==None:
             self.msgOut(QCoreApplication.translate("exec","RoboIF not found!\nProgram terminated\n"))
             self.stop()
+        elif mcnt<0:
+            self.msgOut(QCoreApplication.translate("exec","MEnd found with-\nout Module!\nProgram terminated\n"))
+            self.stop()
+        elif mcnt>0:
+            self.msgOut(QCoreApplication.translate("exec","MEnd missing!\nProgram terminated\n"))
+            self.stop()
+        elif txt_m[0] and (txt_o[0] or txt_o[1]):
+            self.msgOut(QCoreApplication.translate("exec","TXT M1 and O1/O2\nused in parallel!\nProgram terminated\n"))
+            self.stop()
+        elif txt_m[1] and (txt_o[2] or txt_o[3]):
+            self.msgOut(QCoreApplication.translate("exec","TXT M2 and O3/O4\nused in parallel!\nProgram terminated\n"))
+            self.stop()
+        elif txt_m[2] and (txt_o[4] or txt_o[5]):
+            self.msgOut(QCoreApplication.translate("exec","TXT M3 and O5/O6\nused in parallel!\nProgram terminated\n"))
+            self.stop()
+        elif txt_m[3] and (txt_o[6] or txt_o[7]):
+            self.msgOut(QCoreApplication.translate("exec","TXT M1 and O7/O8\nused in parallel!\nProgram terminated\n"))
+            self.stop()
+        elif rif_m[0] and (rif_o[0] or rif_o[1]):
+            self.msgOut(QCoreApplication.translate("exec","RIF M1 and O1/O2\nused in parallel!\nProgram terminated\n"))
+            self.stop()
+        elif rif_m[1] and (rif_o[2] or rif_o[3]):
+            self.msgOut(QCoreApplication.translate("exec","RIF M2 and O3/O4\nused in parallel!\nProgram terminated\n"))
+            self.stop()
+        elif rif_m[2] and (rif_o[4] or rif_o[5]):
+            self.msgOut(QCoreApplication.translate("exec","RIF M3 and O5/O6\nused in parallel!\nProgram terminated\n"))
+            self.stop()
+        elif rif_m[3] and (rif_o[6] or rif_o[7]):
+            self.msgOut(QCoreApplication.translate("exec","RIF M1 and O7/O8\nused in parallel!\nProgram terminated\n"))
+            self.stop()
+        
+        
+        if not self.halt and self.RIF!=None:
+            s = self.RIF.GetDeviceTypeString()
+            if s=="Robo LT Controller":
+                if rif_m[2] or rif_m[3]:
+                    self.msgOut(QCoreApplication.translate("exec","M3 or M4 not available\non Robo LT!\nProgram terminated\n"))
+                    self.stop()
+                elif rif_o[4] or rif_o[5] or rif_o[6] or rif_o[7]:
+                    self.msgOut(QCoreApplication.translate("exec","O5 to O8 not available\non Robo LT!\nProgram terminated\n"))
+                    self.stop()
+                elif rif_i[3] or rif_i[4] or rif_i[5] or rif_i[6] or rif_i[7]:
+                    self.msgOut(QCoreApplication.translate("exec","I4 to I8 not available\non Robo LT!\nProgram terminated\n"))
+                    self.stop()                
+                
+        # TXT I/O initialisieren...
+        
+        if self.TXT!=None and not self.halt:
+            M = [ self.TXT.C_OUTPUT, self.TXT.C_OUTPUT, self.TXT.C_OUTPUT, self.TXT.C_OUTPUT ]
+            I = [ (self.TXT.C_SWITCH, self.TXT.C_DIGITAL ),
+                    (self.TXT.C_SWITCH, self.TXT.C_DIGITAL ),
+                    (self.TXT.C_SWITCH, self.TXT.C_DIGITAL ),
+                    (self.TXT.C_SWITCH, self.TXT.C_DIGITAL ),
+                    (self.TXT.C_SWITCH, self.TXT.C_DIGITAL ),
+                    (self.TXT.C_SWITCH, self.TXT.C_DIGITAL ),
+                    (self.TXT.C_SWITCH, self.TXT.C_DIGITAL ),
+                    (self.TXT.C_SWITCH, self.TXT.C_DIGITAL ) ]
+            self.TXT.setConfig(M, I)
+            self.TXT.updateConfig()
+            self.txt_i=[0,0,0,0,0,0,0,0]
+            self.txt_m=[0,0,0,0]
+            self.txt_o=[0,0,0,0,0,0,0,0]
+            
+            for i in range(0,8):
+                if txt_o[i]:
+                    self.txt_o[i]=self.TXT.output(i+1)
+                if txt_i[i]:
+                    self.txt_i[i]=self.TXT.input(i+1)
+                if i<4:
+                    if txt_m[i]: self.txt_m[i]=self.TXT.motor(i+1)
+            
         
         if not self.halt:
             self.msgOut("<Start>")
@@ -132,8 +241,8 @@ class execThread(QThread):
                 self.RIF.SetOutput(i,0)
         
         if self.TXT:
-            for i in range(1,9):
-                pass # shutoff txt outputs here later
+            for i in range(0,8):
+                self.TXT.setPwm(i,0)
         
         self.execThreadFinished.emit()
     
@@ -180,10 +289,22 @@ class execThread(QThread):
     def cmdOutput(self, stack):
         if stack[1]=="RIF":
             self.RIF.SetOutput(int(stack[2]),int(stack[3]))
+        else:
+            self.txt_o[int(stack[2])-1].setLevel(int(stack[3]))
 
     def cmdMotor(self, stack):
         if stack[1]=="RIF":
             self.RIF.SetMotor(int(stack[2]),stack[3], int(stack[4]))
+        else: # TXT
+            if stack[3]=="s":
+                self.txt_m[int(stack[2])-1].stop()
+            elif stack[3]=="r":
+                s=int(stack[4])
+                self.txt_m[int(stack[2])-1].setSpeed(s)
+            elif stack[3]=="l":
+                s=0-int(stack[4])
+                self.txt_m[int(stack[2])-1].setSpeed(s)
+                
     
     def cmdMotorPulsewheel(self, stack):
         m=int(stack[2])      # Output No.
@@ -208,6 +329,24 @@ class execThread(QThread):
                 if not a==b: c=c+1
             
             self.RIF.SetMotor(m,"s",0)
+        else: # TXT
+            if e>-1:
+                if d=="l" and self.txt_i[e-1].state(): return
+            
+            a=self.txt_i[p-1].state()
+            #self.RIF.SetMotor(m,d,s)
+            if d=="l":
+                s=0-s
+            self.txt_m[m-1].setSpeed(s)
+            c=0
+            while c<n and not self.halt:
+                if e>-1:
+                    if d=="l" and self.txt_i[e-1].state(): break
+                b=a
+                a=self.txt_i[p-1].state()
+                if not a==b: c=c+1
+            
+            self.txt_m[int(stack[2])-1].stop()  
             
             
     def cmdDelay(self, stack):
@@ -284,6 +423,22 @@ class execThread(QThread):
                     b=a
                     a=self.RIF.Digital(int(stack[2]))
                     self.parent.processEvents()
+        else: # TXT
+            if stack[3]=="Raising":
+                a=self.txt_i[int(stack[2])-1].state()
+                b=a
+                while not (b<a or self.halt or self.tOut ): 
+                    b=a
+                    a=self.txt_i[int(stack[2])-1].state()
+                    self.parent.processEvents()
+            elif stack[3]=="Falling":
+                a=self.txt_i[int(stack[2])-1].state()
+                b=a
+                while not (b>a or self.halt or self.tOut ): 
+                    b=a
+                    a=self.txt_i[int(stack[2])-1].state()
+                    self.parent.processEvents()
+                    
         if self.tAct:
             self.timer.stop()
     
@@ -293,6 +448,17 @@ class execThread(QThread):
     def cmdIfInputDig(self,stack):
         if stack[1]=="RIF":
             if (stack[3]=="True" and self.RIF.Digital(int(stack[2]))) or (stack[3]=="False" and not self.RIF.Digital(int(stack[2]))):
+                n=-1
+                for line in self.jmpTable:
+                    if stack[4]==line[0]: n=line[1]-1
+
+                if n==-1:
+                    self.msgOut("IfInputDig jump tag not found!")
+                    self.halt=True
+                else:
+                    self.count=n        
+        else:
+            if (stack[3]=="True" and self.txt_i[int(stack[2])-1].state()) or (stack[3]=="False" and not self.txt_i[int(stack[2])-1].state()):
                 n=-1
                 for line in self.jmpTable:
                     if stack[4]==line[0]: n=line[1]-1
@@ -606,7 +772,7 @@ class editOutput(TouchDialog):
     def valueChanged(self):
         if not self.value.text().isnumeric(): self.value.setText("0")
         if self.interface.currentIndex()==0: self.value.setText(str(max(0,min(7,int(self.value.text())))))
-        else: self.value.setText(str(max(0,min(511,int(self.value.text())))))
+        else: self.value.setText(str(max(0,min(512,int(self.value.text())))))
 
 class editMotor(TouchDialog):
     def __init__(self, cmdline, parent=None):
@@ -723,7 +889,7 @@ class editMotor(TouchDialog):
     def valueChanged(self):
         if not self.value.text().isnumeric(): self.value.setText("0")
         if self.interface.currentIndex()==0: self.value.setText(str(max(0,min(7,int(self.value.text())))))
-        else: self.value.setText(str(max(0,min(511,int(self.value.text())))))
+        else: self.value.setText(str(max(0,min(512,int(self.value.text())))))
 
 class editMotorPulsewheel(TouchDialog):
     def __init__(self, cmdline, parent=None):
@@ -901,7 +1067,7 @@ class editMotorPulsewheel(TouchDialog):
     def valueChanged(self):
         if not self.value.text().isnumeric(): self.value.setText("0")
         if self.interface.currentIndex()==0: self.value.setText(str(max(0,min(7,int(self.value.text())))))
-        else: self.value.setText(str(max(0,min(511,int(self.value.text())))))   
+        else: self.value.setText(str(max(0,min(512,int(self.value.text())))))   
         
 class editLoopTo(TouchDialog):
     def __init__(self, cmdline, taglist, parent):
@@ -1303,7 +1469,8 @@ class FtcGuiApplication(TouchApplication):
         if self.RIF==None: s= QCoreApplication.translate("m_interfaces","No Robo device")
         else: s = self.RIF.GetDeviceTypeString()
                 
-        t = QCoreApplication.translate("m_interfaces","No TXT device")
+        if self.TXT==None: t = QCoreApplication.translate("m_interfaces","No TXT device")
+        else: t = t = QCoreApplication.translate("m_interfaces","TXT found")
         
         text="<center>" + QCoreApplication.translate("m_interfaces","Hardware found:") + "<hr><i>" + s + "<hr>" + t
         
@@ -1326,9 +1493,18 @@ class FtcGuiApplication(TouchApplication):
         
         self.RIF=RoboInterface()
         if not self.RIF.hasInterface(): self.RIF=None
+
+        self.TXT=None
+        try:
+            self.TXT=txt.ftrobopy("auto")
+        except:
+            self.TXT=None        
         
-        self.TXT=None #for now ;-)        
-            
+        if self.TXT==None:
+            try:
+                self.TXT=txt.ftrobopy("192.168.178.24",65000)
+            except:
+                self.TXT=None
 
     def codeFromListWidget(self):
         self.code=[]
