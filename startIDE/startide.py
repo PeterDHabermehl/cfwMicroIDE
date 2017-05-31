@@ -180,7 +180,7 @@ class execThread(QThread):
             s = self.RIF.GetDeviceTypeString()
             if s=="Robo LT Controller":
                 if rif_m[2] or rif_m[3]:
-                    self.msgOut(QCoreApplication.translate("exec","M3 or M4 not available\non Robo LT!\nProgram terminated\n"))
+                    self.msgOut(QCoreApplication.translate("exec","M3 and M4 not available\non Robo LT!\nProgram terminated\n"))
                     self.stop()
                 elif rif_o[4] or rif_o[5] or rif_o[6] or rif_o[7]:
                     self.msgOut(QCoreApplication.translate("exec","O5 to O8 not available\non Robo LT!\nProgram terminated\n"))
