@@ -235,12 +235,12 @@ class execThread(QThread):
             self.parent.processEvents()
         
         if not self.halt: self.msgOut("<End>")
-        
-        if self.RIF:
+
+        if self.RIF!=None:
             for i in range(1,9):
                 self.RIF.SetOutput(i,0)
         
-        if self.TXT:
+        if self.TXT!=None:
             for i in range(0,8):
                 self.TXT.setPwm(i,0)
         
@@ -1497,15 +1497,10 @@ class FtcGuiApplication(TouchApplication):
         self.TXT=None
         try:
             self.TXT=txt.ftrobopy("auto")
+            name, version = self.TXT.queryStatus()
         except:
             self.TXT=None        
-        
-        if self.TXT==None:
-            try:
-                self.TXT=txt.ftrobopy("192.168.178.24",65000)
-            except:
-                self.TXT=None
-
+    
     def codeFromListWidget(self):
         self.code=[]
         for i in range(0,self.proglist.count()): self.code.append(self.proglist.item(i).text())
