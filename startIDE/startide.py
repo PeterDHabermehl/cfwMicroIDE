@@ -1455,12 +1455,141 @@ class FtcGuiApplication(TouchApplication):
         elif r == QCoreApplication.translate("m_project","Delete"):    self.modules_delete()
     
     def modules_import(self):
-        pass
-    def modules_export(self):
-        pass
-    def modules_delete(self):
-        pass
+        # get list of projecs and query user
+        filelist=os.listdir(moddir)
+        filelist.sort()
+        if len(filelist)>0:
+            (s,r)=TouchAuxListRequester(QCoreApplication.translate("m_modules","Import"),QCoreApplication.translate("m_modules","Module"),filelist,filelist[0],"Okay",self.mainwindow).exec_()
+        else:
+            t=TouchMessageBox(QCoreApplication.translate("m_modules","Import"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_modules","No saved modules found."))
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_modules","Okay"))
+            (v1,v2)=t.exec_()   
+            s=False
+            
+        if not s: return
+    
+        with open(moddir+r,"r", encoding="utf-8") as f:
+            module=json.load(f)
+        
+        self.codeFromListWidget()
+        
+        for a in module:
+            self.code.append(a)
+        self.proglist.clear()
+        self.proglist.addItems(self.code)
+        
+        self.codeSaved=False
 
+    
+    def modules_export(self):
+        self.codeFromListWidget()
+        modTable=[]
+        modList=[]
+        mcnt=0
+        cnt=0
+        for line in self.code:
+            a=line.split()
+            if "Module" in line[:6]:
+                modTable.append([line[7:], cnt])
+                modList.append(line[7:])
+                mcnt=mcnt+1
+            elif "MEnd" in line[:4]:
+                mcnt=mcnt-1
+            cnt=cnt+1
+            
+        if mcnt<0:
+            t=TouchMessageBox(QCoreApplication.translate("m_modules","Modules"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_modules","MEnd found with-\nout Module!\nPlease fix before export!\n"))
+            t.setTextSize(1)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_modules","Okay"))
+            (v1,v2)=t.exec_() 
+            return
+        elif mcnt>0:
+            t=TouchMessageBox(QCoreApplication.translate("m_modules","Modules"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_modules","MEnd missing!\nPlease fix before export!\n"))
+            t.setTextSize(1)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_modules","Okay"))
+            (v1,v2)=t.exec_() 
+            return
+        
+        if len(modTable)>0:
+            (s,r)=TouchAuxListRequester(QCoreApplication.translate("m_modules","Export"),QCoreApplication.translate("m_modules","Module"),modList,modList[0],"Okay",self.mainwindow).exec_()
+        else:
+            t=TouchMessageBox(QCoreApplication.translate("m_modules","Export"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_modules","No modules found."))
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_modules","Okay"))
+            (v1,v2)=t.exec_()   
+            s=False
+            
+        if not s: return
+        
+        cnt=0
+        for a in modList:
+            if r==modTable[cnt][0]:   break
+            cnt=cnt+1
+
+        pfn=r
+        if os.path.isfile(moddir+pfn):
+            t=TouchMessageBox(QCoreApplication.translate("m_modules","Export"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_modules","A module file with this name already exists. Do you want to overwrite it?"))
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_modules","Yes"))
+            t.setNegButton(QCoreApplication.translate("m_modules","No"))
+            (r,s)=t.exec_()
+            
+            if s !=  QCoreApplication.translate("m_modules","Yes"): return
+
+        module=[]
+        a=modTable[cnt][1]
+        while self.code[a]!="MEnd":
+            module.append(self.code[a])
+            a=a+1
+        module.append("MEnd")
+        
+        with open(moddir+pfn,"w", encoding="utf-8") as f:
+            
+            json.dump(module,f)
+            f.close()
+        
+    def modules_delete(self):
+        
+        # get list of modules and query user
+        filelist=os.listdir(moddir)                          
+        if len(filelist)>0:
+            (s,r)=TouchAuxListRequester(QCoreApplication.translate("m_modules","Delete"),QCoreApplication.translate("ecl","Module"),filelist,filelist[0],"Okay",self.mainwindow).exec_()
+        else:
+            t=TouchMessageBox(QCoreApplication.translate("m_modules","Delete"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_modules","No saved modules found."))
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_modules","Okay"))
+            (v1,v2)=t.exec_()   
+            s=False
+            
+        if not s: return
+        
+        t=TouchMessageBox(QCoreApplication.translate("m_modules","Delete"), self.mainwindow)
+        t.setCancelButton()
+        t.setText(QCoreApplication.translate("m_modules","Do you really want to permanently delete this module?")+"<br>"+r)
+        t.setBtnTextSize(2)
+        t.setPosButton(QCoreApplication.translate("m_modules","Yes"))
+        t.setNegButton(QCoreApplication.translate("m_modules","No"))
+        (v1,v2)=t.exec_()
+            
+        if v2 !=  QCoreApplication.translate("m_modules","Yes"): return
+        
+        os.remove(moddir+r)
+        
 
     def on_menu_interfaces(self):
         
