@@ -1863,14 +1863,15 @@ class FtcGuiApplication(TouchApplication):
         self.etf=True
         
     def messageBox(self, stack):
-        msg=stack[1:stack[1:].find("'")+1]
-        btn=stack[len(msg)+3:][1:-1]
+        #msg=stack[:stack[1:].find("'")+1]
+        #btn=stack[len(msg)+3:][1:-1]
+        msg=stack.split("'")
         t=TouchMessageBox(QCoreApplication.translate("exec","Message"), self.mainwindow)
         t.setCancelButton()
-        t.setText(msg)
+        t.setText(msg[0])
         t.setTextSize(2)
         t.setBtnTextSize(2)
-        t.setPosButton(btn)
+        t.setPosButton(msg[1])
         (v1,v2)=t.exec_()       
         self.et.setMsg(1)
     
@@ -1982,8 +1983,9 @@ class FtcGuiApplication(TouchApplication):
             (t,p)=ftb.exec_()
             if t:
                 if   p==QCoreApplication.translate("addcodeline","Print"):      self.acl_print()
-                elif p==QCoreApplication.translate("addcodeline","Clear"):        self.acl_clear()
-
+                elif p==QCoreApplication.translate("addcodeline","Clear"):      self.acl_clear()
+                elif p==QCoreApplication.translate("addcodeline","Message"):    self.acl_message()
+                
     def acl(self,code):
         self.proglist.insertItem(self.proglist.currentRow()+1,code)
         self.proglist.setCurrentRow(self.proglist.currentRow()+1)
@@ -2044,6 +2046,9 @@ class FtcGuiApplication(TouchApplication):
     
     def acl_print(self):
         self.acl("Print ")
+
+    def acl_message(self):
+        self.acl("Message  'Okay")
     
     def acl_clear(self):
         self.acl("Clear")
@@ -2206,7 +2211,8 @@ class FtcGuiApplication(TouchApplication):
         return "Print "+TouchAuxKeyboard(QCoreApplication.translate("ecl","Print"),itm[6:],self.mainwindow).exec_()
         
     def ecl_message(self, itm):
-        return itm
+        a=itm[8:].split("'")
+        return "Message "+TouchAuxKeyboard(QCoreApplication.translate("ecl","Message"),a[0],self.mainwindow).exec_()+"'"+TouchAuxKeyboard(QCoreApplication.translate("ecl","BtnTxt"),a[1],self.mainwindow).exec_()
     
     def ecl_request(self, itm):
         return itm
