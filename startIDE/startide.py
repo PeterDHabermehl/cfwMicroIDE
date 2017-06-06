@@ -269,22 +269,23 @@ class execThread(QThread):
                 self.singlestep=True
                 self.cmdPrint("STEPON: tap screen!")
             elif "STEPOFF" in line:  self.singlestep=False
-        elif stack[0]== "Stop": self.count=len(self.codeList)
-        elif stack[0]== "Output": self.cmdOutput(stack)
-        elif stack[0]== "Motor": self.cmdMotor(stack)
-        elif stack[0]== "MotorP": self.cmdMotorPulsewheel(stack)
-        elif stack[0]== "Delay": self.cmdDelay(stack)
-        elif stack[0]== "Jump": self.cmdJump(stack)
-        elif stack[0]== "LoopTo": self.cmdLoopTo(stack)
+        elif stack[0]== "Stop":     self.count=len(self.codeList)
+        elif stack[0]== "Output":   self.cmdOutput(stack)
+        elif stack[0]== "Motor":    self.cmdMotor(stack)
+        elif stack[0]== "MotorP":   self.cmdMotorPulsewheel(stack)
+        elif stack[0]== "MotorE":   self.cmdMotorEncoder(stack)
+        elif stack[0]== "Delay":    self.cmdDelay(stack)
+        elif stack[0]== "Jump":     self.cmdJump(stack)
+        elif stack[0]== "LoopTo":   self.cmdLoopTo(stack)
         elif stack[0]== "WaitInDig": self.cmdWaitForInputDig(stack)
-        elif stack[0]== "IfInDig": self.cmdIfInputDig(stack)
-        elif stack[0]== "Print": self.cmdPrint(line[6:])
-        elif stack[0]== "Clear": self.clrOut()
-        elif stack[0]== "Message": self.cmdMessage(line[8:])
-        elif stack[0]== "Module": self.count=len(self.codeList)
-        elif stack[0]== "Call": self.cmdCall(stack)
-        elif stack[0]== "Return": self.cmdReturn()
-        elif stack[0]== "MEnd": self.cmdMEnd()
+        elif stack[0]== "IfInDig":  self.cmdIfInputDig(stack)
+        elif stack[0]== "Print":    self.cmdPrint(line[6:])
+        elif stack[0]== "Clear":    self.clrOut()
+        elif stack[0]== "Message":  self.cmdMessage(line[8:])
+        elif stack[0]== "Module":   self.count=len(self.codeList)
+        elif stack[0]== "Call":     self.cmdCall(stack)
+        elif stack[0]== "Return":   self.cmdReturn()
+        elif stack[0]== "MEnd":     self.cmdMEnd()
         
     def cmdOutput(self, stack):
         if stack[1]=="RIF":
@@ -305,6 +306,28 @@ class execThread(QThread):
                 s=0-int(stack[4])
                 self.txt_m[int(stack[2])-1].setSpeed(s)
                 
+    def cmdMotorEncoder(self, stack):
+        m=int(stack[2])      # Output No.
+        if stack[3] == "None": e = -1
+        else: e = int(stack[3])   # End switch input
+        d=stack[4]      # Direction
+        s=int(stack[5]) # speed
+        n=int(stack[6]) # pulses
+
+        if e>-1:
+            if d=="l" and self.txt_i[e-1].state(): return
+
+        if d=="l":
+            s=0-s
+
+        self.txt_m[m-1].setDistance(n)
+        self.txt_m[m-1].setSpeed(s)
+
+        while not (self.txt_m[m-1].finished() or self.halt):
+            if e>-1:
+                if d=="l" and self.txt_i[e-1].state(): break
+        
+        self.txt_m[int(stack[2])-1].stop()  
     
     def cmdMotorPulsewheel(self, stack):
         m=int(stack[2])      # Output No.
@@ -1069,6 +1092,165 @@ class editMotorPulsewheel(TouchDialog):
         if self.interface.currentIndex()==0: self.value.setText(str(max(0,min(7,int(self.value.text())))))
         else: self.value.setText(str(max(0,min(512,int(self.value.text())))))   
         
+class editMotorEncoder(TouchDialog):
+    def __init__(self, cmdline, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","MotorE"), parent)
+        
+        self.cmdline=cmdline
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+        
+        self.layout=QVBoxLayout()
+        
+        k1=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Device"))
+        l.setStyleSheet("font-size: 20px;")
+        
+        k1.addWidget(l)
+        
+        self.interface=QComboBox()
+        self.interface.setStyleSheet("font-size: 20px;")
+        self.interface.addItems(["TXT"])
+
+        self.interface.currentIndexChanged.connect(self.ifChanged)
+        k1.addWidget(self.interface)
+        
+        #self.layout.addStretch()
+        
+        k2=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Port"))
+        l.setStyleSheet("font-size: 20px;")
+        k2.addWidget(l)
+        
+        self.port=QComboBox()
+        self.port.setStyleSheet("font-size: 20px;")
+        self.port.addItems(["M 1","M 2","M 3","M 4"])
+
+        self.port.setCurrentIndex(int(self.cmdline.split()[2])-1)
+        k2.addWidget(self.port)
+        
+        k8=QHBoxLayout()
+        k8.addLayout(k1)
+        k8.addStretch()
+        k8.addLayout(k2)
+        
+        self.layout.addLayout(k8)        
+        
+        k3=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Value"))
+        l.setStyleSheet("font-size: 20px;")
+        k3.addWidget(l)     
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 20px;")
+        self.value.setText(self.cmdline.split()[5])
+        self.value.mousePressEvent=self.getValue
+        k3.addWidget(self.value)
+        
+        k4=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Direction"))
+        l.setStyleSheet("font-size: 20px;")
+        k4.addWidget(l)
+        
+        self.direction=QComboBox()
+        self.direction.setStyleSheet("font-size: 20px;")
+        self.direction.addItems([QCoreApplication.translate("ecl","right"),QCoreApplication.translate("ecl","left"),QCoreApplication.translate("ecl","stop")])
+        if self.cmdline.split()[4][:1]=="r": self.direction.setCurrentIndex(0)
+        elif self.cmdline.split()[4][:1]=="l": self.direction.setCurrentIndex(1)
+        elif self.cmdline.split()[4][:1]=="s": self.direction.setCurrentIndex(2)
+        k4.addWidget(self.direction)
+        
+        k9=QHBoxLayout()
+        k9.addLayout(k3)
+        k9.addStretch()
+        k9.addLayout(k4)
+        
+        self.layout.addLayout(k9)
+    
+        self.layout.addStretch()
+        
+        k5=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "End Sw."))
+        l.setStyleSheet("font-size: 20px;")
+        
+        k5.addWidget(l)
+        
+        self.endSw=QComboBox()
+        self.endSw.setStyleSheet("font-size: 20px;")
+        self.endSw.addItems(["I 1","I 2","I 3","I 4","I 5","I 6","I 7","I 8"])
+        self.endSw.setCurrentIndex(int(self.cmdline.split()[3])-1)
+
+        k5.addWidget(self.endSw)
+        
+        #self.layout.addStretch()
+
+        self.layout.addLayout(k5)
+        self.layout.addStretch()
+        
+        k13=QHBoxLayout()
+        
+        k11=QLabel("Pulses")
+        k11.setStyleSheet("font-size: 20px;")
+        
+        k13.addWidget(k11)
+        k13.addStretch()
+        
+        self.pulses=QLineEdit(self.cmdline.split()[6])
+        self.pulses.setReadOnly(True)
+        self.pulses.setStyleSheet("font-size: 20px;")
+        self.pulses.mousePressEvent=self.getPulses
+        k13.addWidget(self.pulses)
+        
+        self.layout.addLayout(k13)
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="MotorE " +self.interface.currentText()+ " " + self.port.currentText()[2:] + " "
+        self.cmdline=self.cmdline + self.endSw.currentText()[2:] + " "
+        
+        if self.direction.currentIndex()==0: d="r"
+        elif self.direction.currentIndex()==1: d="l"
+        elif self.direction.currentIndex()==2:
+            d="s"
+            self.value.setText("0")
+            
+        self.cmdline=self.cmdline + d + " " + self.value.text()
+        self.cmdline=self.cmdline + " " + self.pulses.text()
+        self.close()
+    
+    def ifChanged(self):
+        self.valueChanged()
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Value"),a,self).exec_()
+        if not t.isnumeric(): t=a
+        self.value.setText(t)
+        self.valueChanged()
+    
+    def getPulses(self,m):
+        a=self.pulses.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Pulses"),a,self).exec_()
+        if not t.isnumeric(): t=a
+        if int(t)<0: t=str(0)
+        if int(t)>9999: t=str(9999)
+        self.pulses.setText(t)
+      
+        
+    def valueChanged(self):
+        if not self.value.text().isnumeric(): self.value.setText("0")
+        self.value.setText(str(max(0,min(512,int(self.value.text())))))   
+        
 class editLoopTo(TouchDialog):
     def __init__(self, cmdline, taglist, parent):
         TouchDialog.__init__(self, QCoreApplication.translate("ecl","LoopTo"), parent)
@@ -1747,7 +1929,8 @@ class FtcGuiApplication(TouchApplication):
                 if   p==QCoreApplication.translate("addcodeline","Output"):  self.acl_output()
                 elif p==QCoreApplication.translate("addcodeline","Motor"):   self.acl_motor()
                 elif p==QCoreApplication.translate("addcodeline","MotorPulsewheel"):   self.acl_motorPulsewheel()
-                    
+                elif p==QCoreApplication.translate("addcodeline","MotorEncoder"):   self.acl_motorEncoder()  
+                
         elif r==QCoreApplication.translate("addcodeline","Controls"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Controls"), self.mainwindow)
             ftb.setButtons([ QCoreApplication.translate("addcodeline","# comment"),
@@ -1825,6 +2008,9 @@ class FtcGuiApplication(TouchApplication):
     
     def acl_motorPulsewheel(self):
         self.acl("MotorP " + self.lastIF + " 1 1 2 l 7 10")
+
+    def acl_motorEncoder(self):
+        self.acl("MotorE " + "TXT" + " 1 1 l 512 72")
     
     def acl_stop(self):
         self.acl("Stop")
@@ -1913,7 +2099,7 @@ class FtcGuiApplication(TouchApplication):
         return editMotorPulsewheel(itm,self.mainwindow).exec_()
     
     def ecl_motorEncoder(self, itm):
-        return itm
+        return editMotorEncoder(itm,self.mainwindow).exec_()
     
     def ecl_waitForInputDig(self, itm):
         return editWaitForInputDig(itm,self.mainwindow).exec_()
