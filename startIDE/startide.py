@@ -134,6 +134,8 @@ class execThread(QThread):
                         if "MotorP"==a[0]:
                             txt_i[int(a[3])-1]=True
                             txt_i[int(a[4])-1]=True
+                        if "MotorE"==a[0]:
+                            txt_i[int(a[3])-1]=True
             cnt=cnt+1
         
         self.clrOut()
