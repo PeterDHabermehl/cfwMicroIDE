@@ -1679,7 +1679,12 @@ class FtcGuiApplication(TouchApplication):
         else:
             l2.addLayout(h)
             
-        self.starter = QPushButton(QCoreApplication.translate("main","Start"))
+        
+        if self.orientation==PORTRAIT:
+            self.starter = QPushButton(QCoreApplication.translate("main","Start"))
+        else:
+            self.starter = QPushButton("S\nt\na\nr\nt")
+            
         self.starter.setStyleSheet("font-size: 20px;")
         self.starter.clicked.connect(self.startStop)
         
@@ -1688,8 +1693,9 @@ class FtcGuiApplication(TouchApplication):
         if self.orientation==PORTRAIT:
             l.addWidget(self.starter)
         else:
+            l2.addWidget(self.starter)
             l.addLayout(l2)
-            l.addWidget(self.starter)
+            #l.addWidget(self.starter)
 
             
         self.centralwidget.setLayout(l)
@@ -2104,7 +2110,11 @@ class FtcGuiApplication(TouchApplication):
         self.output.clear()
     
     def execThreadFinished(self):
-        self.starter.setText(QCoreApplication.translate("main","Close log"))
+        if self.orientation==PORTRAIT:
+            self.starter.setText(QCoreApplication.translate("main","Close log"))
+        else:
+            self.starter.setText("C\nl\no\ns\ne\n\nl\no\ng")
+            
         self.etf=True
         
     def messageBox(self, stack):
@@ -2132,8 +2142,16 @@ class FtcGuiApplication(TouchApplication):
         
         self.output.setVisible(not status)
     
-        if status: self.starter.setText(QCoreApplication.translate("main","Start")) 
-        else:      self.starter.setText(QCoreApplication.translate("main","Stop"))
+        if status:
+            if self.orientation==PORTRAIT:
+                self.starter.setText(QCoreApplication.translate("main","Start"))
+            else:
+                self.starter.setText("S\nt\na\nr\nt")
+        else:
+            if self.orientation==PORTRAIT:
+                self.starter.setText(QCoreApplication.translate("main","Stop"))
+            else:
+                self.starter.setText("S\nt\no\np")
 
     def copyCodeLine(self):
         row=self.proglist.currentRow()
