@@ -2,12 +2,14 @@
 
 import locale
 
-defaultlocale=locale.getdefaultlocale()
+defaultlocale=locale.getdefaultlocale()[0]
 
 LOCAL = "en"
 
 if "de_" in defaultlocale: LOCAL = "de"
 elif "fr_" in defaultlocale: LOCAL = "fr"
+
+print(defaultlocale, LOCAL)
 
 def translate(string):
     if string == "This is a test":
