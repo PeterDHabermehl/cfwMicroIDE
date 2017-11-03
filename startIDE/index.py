@@ -2,4 +2,4 @@
 
 from translator import *
 
-print(translate("This is a test"));
+print(translate("This is a test","fr"));

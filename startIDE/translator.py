@@ -40,13 +40,13 @@ def translate(string, locale = LOCAL):
     #####################################
     
     if string == "This is a test":
-        if local == "de": return "Dies ist ein Test"
-        if local == "fr": return "C'est un test"    
-        # if local == "another language": return "Translated text for this language"
+        if locale == "de": return "Dies ist ein Test"
+        if locale == "fr": return "C'est un test"    
+        # if locale == "another language": return "Translated text for this language"
     # if string == "another string":  
-    #     if local == "de": return "Deutsche Übersetzung"
-    #     if local == "fr": return "Traduction francaise"
-    #     if local == "another language": return "Translated text for this language"
+    #     if locale == "de": return "Deutsche Übersetzung"
+    #     if locale == "fr": return "Traduction francaise"
+    #     if locale == "another language": return "Translated text for this language"
         
     
     # string not found or language not found:
