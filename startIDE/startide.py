@@ -1951,9 +1951,7 @@ class FtcGuiApplication(TouchApplication):
         
         for a in module:
             self.code.insert(m+1,a)
-            #self.code.insert(self.proglist.currentRow()+1,a)
             m=m+1
-            #self.proglist.setCurrentRow(self.proglist.currentRow()+1)
 
         self.proglist.clear()
         self.proglist.addItems(self.code)
