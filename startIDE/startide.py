@@ -297,6 +297,7 @@ class execThread(QThread):
                 self.singlestep=True
                 self.cmdPrint("STEPON: tap screen!")
             elif "STEPOFF" in line:  self.singlestep=False
+            if "QUERY" in line: self.cmdQuery(stack)
         elif stack[0]== "Stop":     self.count=len(self.codeList)
         elif stack[0]== "Output":   self.cmdOutput(stack)
         elif stack[0]== "Motor":    self.cmdMotor(stack)
@@ -316,6 +317,16 @@ class execThread(QThread):
         elif stack[0]== "Return":   self.cmdReturn()
         elif stack[0]== "MEnd":     self.cmdMEnd()
         
+    def cmdQuery(self, stack):
+        if stack [2] == "RIF":
+            a=self.RIF.Digital(int(stack[3]))
+            self.cmdPrint("Query "+ stack[2] + " " + stack[3]+": ")
+            self.cmdPrint(str(a))
+        else:
+            a=self.txt_i[int(stack[3])-1].state()
+            self.cmdPrint("Query "+ stack[2] + " " + stack[3]+": ")
+            self.cmdPrint(str(a))
+    
     def cmdOutput(self, stack):
         if stack[1]=="RIF":
             self.RIF.SetOutput(int(stack[2]),int(stack[3]))
