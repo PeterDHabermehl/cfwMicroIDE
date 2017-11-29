@@ -116,14 +116,16 @@ class execThread(QThread):
         
         cnt=0
         mcnt=0
+        
         rif_m=[False, False, False, False]
         rif_o=[False, False, False, False, False, False, False, False]
+        rif_i=[False, False, False, False, False, False, False, False]
         txt_m=[False, False, False, False]
         txt_o=[False, False, False, False, False, False, False, False]
-        
-        rif_i=[False, False, False, False, False, False, False, False]
         txt_i=[False, False, False, False, False, False, False, False]
-        
+        ftd_m=[False, False, False, False]
+        ftd_o=[False, False, False, False, False, False, False, False]
+        ftd_i=[False, False, False, False, False, False, False, False]
         # scan code for interfaces, jump and module tags, output and motor channels
         
         for line in self.codeList:
@@ -177,7 +179,23 @@ class execThread(QThread):
                         if "Query"==a[0]:
                             if (a[3]=="S" or a[3]=="R" or a[3]=="V"):
                                 txt_i[int(a[2])-1]=True    
-
+                    elif a[1]=="FTD": 
+                        if ("Motor" in a[0]):
+                            ftd_m[int(a[2])-1]=True
+                        elif ("Output" in a[0]):
+                            ftd_o[int(a[2])-1]=True
+                        elif ("IfInDig"==a[0]) or ("WaitInDig"==a[0]):
+                            ftd_i[int(a[2])-1]=True
+                        if "MotorP"==a[0]:
+                            ftd_i[int(a[3])-1]=True
+                            ftd_i[int(a[4])-1]=True
+                        if "MotorE"==a[0]:
+                            ftd_i[int(a[3])-1]=True
+                        if "MotorES"==a[0]:
+                            ftd_m[int(a[3])-1]=True
+                        if "Query"==a[0]:
+                            if (a[3]=="S" or a[3]=="R" or a[3]=="V"):
+                                txt_i[int(a[2])-1]=True  
             cnt=cnt+1
         
         self.clrOut()
@@ -221,7 +239,18 @@ class execThread(QThread):
         elif rif_m[3] and (rif_o[6] or rif_o[7]):
             self.msgOut(QCoreApplication.translate("exec","RIF M1 and O7/O8\nused in parallel!\nProgram terminated\n"))
             self.stop()
-        
+        elif ftd_m[0] and (ftd_o[0] or ftd_o[1]):
+            self.msgOut(QCoreApplication.translate("exec","FTD M1 and O1/O2\nused in parallel!\nProgram terminated\n"))
+            self.stop()
+        elif ftd_m[1] and (ftd_o[2] or ftd_o[3]):
+            self.msgOut(QCoreApplication.translate("exec","FTD M2 and O3/O4\nused in parallel!\nProgram terminated\n"))
+            self.stop()
+        elif ftd_m[2] and (ftd_o[4] or ftd_o[5]):
+            self.msgOut(QCoreApplication.translate("exec","FTD M3 and O5/O6\nused in parallel!\nProgram terminated\n"))
+            self.stop()
+        elif ftd_m[3] and (ftd_o[6] or ftd_o[7]):
+            self.msgOut(QCoreApplication.translate("exec","FTD M1 and O7/O8\nused in parallel!\nProgram terminated\n"))
+            self.stop()        
         
         if not self.halt and self.RIF!=None:
             s = self.RIF.GetDeviceTypeString()
@@ -343,34 +372,45 @@ class execThread(QThread):
         
     def cmdQuery(self, stack):
         
-        tx=""
+        tx = v = ""
+        
         for a in range(4,len(stack)):
             tx=tx+(stack[a])+" "
         tx=tx[:-1]
+        
         if stack[1] == "RIF":
-            pass
+            if stack[3]=="S":
+                v=str(self.RIF.Digital(int(stack[2])))
+            elif stack[3]=="V":
+                tx="Not yet implemented"
+            elif stack[3]=="R":
+                tx="Not yet implemented"
+            elif stack[3]=="D":
+                tx="Not yet implemented"
+            elif stack[3]=="C":
+                tx="Not yet implemented"                
         elif stack[1]== "TXT":
             if stack[3]=="S":
-                v=self.txt_i[int(stack[2])-1].state()
+                v=str(self.txt_i[int(stack[2])-1].state())
             elif stack[3]=="V":
-                pass
+                tx="Not yet implemented"
             elif stack[3]=="R":
-                pass
+                tx="Not yet implemented"
             elif stack[3]=="D":
-                pass
+                tx="Not yet implemented"
             elif stack[3]=="C":
-                pass
+                tx="Not yet implemented"
         elif stack[1]== "FTD":
             if stack[3]=="S":
                 v=self.FTD.comm("input_get i"+stack[2])
             elif stack[3]=="V":
-                pass
+                tx="Not yet implemented"
             elif stack[3]=="R":
-                pass
+                tx="Not yet implemented"
             elif stack[3]=="D":
-                pass
+                tx="Not yet implemented"
             elif stack[3]=="C":
-                pass
+                tx="Not yet implemented"
         
         self.cmdPrint(tx+" "+v)
             
@@ -400,11 +440,9 @@ class execThread(QThread):
             if stack[3]=="s":
                 self.FTD.comm("motor_set M"+stack[2]+" brake 0")
             elif stack[3]=="l":
-                s=int(int(stack[4])/512*64)
-                self.FTD.comm("motor_set M"+stack[2]+" left "+str(s))
+                self.FTD.comm("motor_set M"+stack[2]+" left "+stack[4])
             elif stack[3]=="r":
-                s=64/512*int(stack[4])
-                self.FTD.comm("motor_set M"+stack[2]+" right "+str(s))             
+                self.FTD.comm("motor_set M"+stack[2]+" right "+stack[4])             
                 
     def cmdMotorEncoderSync(self, stack):
         m=int(stack[2])      # Output No.
@@ -477,7 +515,7 @@ class execThread(QThread):
                 if not a==b: c=c+1
             
             self.RIF.SetMotor(m,"s",0)
-        else: # TXT
+        elif stack[1]=="TXT": # TXT
             if e>-1:
                 if d=="l" and self.txt_i[e-1].state(): return
             
@@ -496,7 +534,26 @@ class execThread(QThread):
                 if not a==b: c=c+1
             
             self.txt_m[int(stack[2])-1].stop()  
+        elif stack[1]=="FTD": # FTD
+            if e>-1:
+                if d=="l" and (self.FTD.comm("input_get i"+str(e))=="1"): return
             
+            a=int(self.FTD.comm("input_get i"+str(p)))
+
+            if d=="r":
+                self.FTD.comm("motor_set M"+str(m)+" right "+str(s)) 
+            else:
+                self.FTD.comm("motor_set M"+str(m)+" left "+str(s))             
+            
+            c=0
+            while c<n and not self.halt:
+                if e>-1:
+                    if d=="l" and (self.FTD.comm("input_get i"+str(e))=="1"): break
+                b=a
+                a=int(self.FTD.comm("input_get i"+str(p)))
+                if not a==b: c=c+1
+            
+            self.FTD.comm("motor_set M"+str(m)+" brake 0")      
             
     def cmdDelay(self, stack):
 
@@ -579,7 +636,7 @@ class execThread(QThread):
                     b=a
                     a=self.RIF.Digital(int(stack[2]))
                     self.parent.processEvents()
-        else: # TXT
+        elif stack[1]=="TXT": # TXT
             if stack[3]=="Raising":
                 a=self.txt_i[int(stack[2])-1].state()
                 b=a
@@ -593,6 +650,21 @@ class execThread(QThread):
                 while not (b>a or self.halt or self.tOut ): 
                     b=a
                     a=self.txt_i[int(stack[2])-1].state()
+                    self.parent.processEvents()
+        elif stack[1]=="FTD": # FTD
+            if stack[3]=="Raising":
+                a=int(self.FTD.comm("input_get i"+stack[2]))
+                b=a
+                while not (b<a or self.halt or self.tOut ): 
+                    b=a
+                    a=int(self.FTD.comm("input_get i"+stack[2]))
+                    self.parent.processEvents()
+            elif stack[3]=="Falling":
+                a=int(self.FTD.comm("input_get i"+stack[2]))
+                b=a
+                while not (b>a or self.halt or self.tOut ): 
+                    b=a
+                    a=int(self.FTD.comm("input_get i"+stack[2]))
                     self.parent.processEvents()
                     
         if self.tAct:
@@ -613,7 +685,7 @@ class execThread(QThread):
                     self.halt=True
                 else:
                     self.count=n        
-        else:
+        elif stack[1]=="TXT":
             if (stack[3]=="True" and self.txt_i[int(stack[2])-1].state()) or (stack[3]=="False" and not self.txt_i[int(stack[2])-1].state()):
                 n=-1
                 for line in self.jmpTable:
@@ -624,7 +696,19 @@ class execThread(QThread):
                     self.halt=True
                 else:
                     self.count=n
+        elif stack[1]=="FTD":
+            v=(self.FTD.comm("input_get i"+stack[2]))
+            if (stack[3]=="True" and (v=="1")) or (stack[3]=="False" and (v!="1")):
+                n=-1
+                for line in self.jmpTable:
+                    if stack[4]==line[0]: n=line[1]-1
 
+                if n==-1:
+                    self.msgOut("IfInputDig jump tag not found!")
+                    self.halt=True
+                else:
+                    self.count=n
+                    
     def cmdCall(self, stack):
         n=-1
         for line in self.modTable:
@@ -692,10 +776,11 @@ class editWaitForInputDig(TouchDialog):
         
         self.interface=QComboBox()
         self.interface.setStyleSheet("font-size: 20px;")
-        self.interface.addItems(["RIF","TXT"])
+        self.interface.addItems(["RIF","TXT","FTD"])
 
         if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(1)
-
+        if self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(2)
+        
         k1.addWidget(self.interface)
         
         
@@ -783,9 +868,10 @@ class editIfInputDig(TouchDialog):
         
         self.interface=QComboBox()
         self.interface.setStyleSheet("font-size: 20px;")
-        self.interface.addItems(["RIF","TXT"])
+        self.interface.addItems(["RIF","TXT","FTD"])
 
         if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(1)
+        if self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(2)
 
         k1.addWidget(self.interface)
         
@@ -1072,9 +1158,11 @@ class editMotorPulsewheel(TouchDialog):
         
         self.interface=QComboBox()
         self.interface.setStyleSheet("font-size: 20px;")
-        self.interface.addItems(["RIF","TXT"])
+        self.interface.addItems(["RIF","TXT","FTD"])
 
         if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(1)
+        if self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(2)
+        
         self.interface.currentIndexChanged.connect(self.ifChanged)
         k1.addWidget(self.interface)
         
