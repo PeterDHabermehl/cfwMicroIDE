@@ -175,7 +175,7 @@ class execThread(QThread):
                         if "MotorES"==a[0]:
                             txt_m[int(a[3])-1]=True
                         if "Query"==a[0]:
-                            if (a[3]=="D" or a[3]=="R" or a[3]=="V"):
+                            if (a[3]=="S" or a[3]=="R" or a[3]=="V"):
                                 txt_i[int(a[2])-1]=True    
 
             cnt=cnt+1
