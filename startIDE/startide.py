@@ -2352,6 +2352,8 @@ class FtcGuiApplication(TouchApplication):
             self.FTD=ftd.ftduino()
             if self.FTD.getDevice()==None:
                 self.FTD=None
+        else:
+            self.FTD=None
         
             
     def codeFromListWidget(self):
