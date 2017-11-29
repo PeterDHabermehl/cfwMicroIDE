@@ -347,7 +347,6 @@ class execThread(QThread):
         for a in range(4,len(stack)):
             tx=tx+(stack[a])+" "
         tx=tx[:-1]
-        print(stack)
         if stack[1] == "RIF":
             pass
         elif stack[1]== "TXT":
@@ -363,7 +362,6 @@ class execThread(QThread):
                 pass
         elif stack[1]== "FTD":
             if stack[3]=="S":
-                print("input_get I"+stack[2])
                 v=self.FTD.comm("input_get i"+stack[2])
             elif stack[3]=="V":
                 pass
