@@ -12,6 +12,13 @@ from datetime import datetime
 
 import translator
 
+try:
+    import ftduino_direct as ftd
+    FTDUINO_DIRECT=True
+except:
+    FTDUINO_DIRECT=False
+    
+
 hostdir = os.path.dirname(os.path.realpath(__file__)) + "/"
 projdir = hostdir + "projects/"
 moddir  = hostdir + "modules/"
@@ -75,7 +82,7 @@ class execThread(QThread):
     execThreadFinished=pyqtSignal()
     showMessage=pyqtSignal(str)
     
-    def __init__(self, codeList, output, starter, RIF,TXT, parent):
+    def __init__(self, codeList, output, starter, RIF,TXT,FTD, parent):
         QThread.__init__(self, parent)
         
         self.codeList=codeList
@@ -86,6 +93,7 @@ class execThread(QThread):
         
         self.RIF=RIF
         self.TXT=TXT
+        self.FTD=FTD
         self.parent=parent
         
     def run(self):
@@ -99,6 +107,7 @@ class execThread(QThread):
         
         self.requireTXT=False
         self.requireRIF=False
+        self.requireFTD=False
         
         self.jmpTable=[]
         self.LoopStack=[]
@@ -119,10 +128,13 @@ class execThread(QThread):
         
         for line in self.codeList:
             a=line.split()
-            if "TXT" in line:
+            if len(a)<2: a.append("x")
+            if "TXT" in a[1]:
                 self.requireTXT=True
-            if "RIF" in line:
+            if "RIF" in a[1]:
                 self.requireRIF=True
+            if "FTD" in a[1]:
+                self.requireFTD=True
             if "Tag" in line[:3]: 
                 self.jmpTable.append([line[4:], cnt])
             elif "Module" in line[:6]:
@@ -175,6 +187,9 @@ class execThread(QThread):
             self.stop()
         elif self.requireRIF and self.RIF==None:
             self.msgOut(QCoreApplication.translate("exec","RoboIF not found!\nProgram terminated\n"))
+            self.stop()
+        elif self.requireFTD and self.FTD==None:
+            self.msgOut(QCoreApplication.translate("exec","ftduino not found!\nProgram terminated\n"))
             self.stop()
         elif mcnt<0:
             self.msgOut(QCoreApplication.translate("exec","MEnd found with-\nout Module!\nProgram terminated\n"))
@@ -277,6 +292,10 @@ class execThread(QThread):
             for i in range(0,8):
                 self.TXT.setPwm(i,0)
         
+        if self.FTD!=None:
+            for i in range(0,8):
+                self.FTD.comm("output_set O"+str(i)+" 1 0")
+        
         self.execThreadFinished.emit()
     
     def __del__(self):
@@ -325,10 +344,10 @@ class execThread(QThread):
     def cmdQuery(self, stack):
         
         tx=""
-        for a in range(4,len(self.cmdline.split())):
-            tx=tx+(self.cmdline.split()[a])+" "
+        for a in range(4,len(stack)):
+            tx=tx+(stack[a])+" "
         tx=tx[:-1]
-        
+        print(stack)
         if stack[1] == "RIF":
             pass
         elif stack[1]== "TXT":
@@ -342,22 +361,35 @@ class execThread(QThread):
                 pass
             elif stack[3]=="C":
                 pass
-        elif stack[2]== "FTD":
-            pass
+        elif stack[1]== "FTD":
+            if stack[3]=="S":
+                print("input_get I"+stack[2])
+                v=self.FTD.comm("input_get i"+stack[2])
+            elif stack[3]=="V":
+                pass
+            elif stack[3]=="R":
+                pass
+            elif stack[3]=="D":
+                pass
+            elif stack[3]=="C":
+                pass
         
-        cmdPrint(tx+" "+v)
+        self.cmdPrint(tx+" "+v)
             
     
     def cmdOutput(self, stack):
         if stack[1]=="RIF":
             self.RIF.SetOutput(int(stack[2]),int(stack[3]))
-        else:
+        elif stack[1]=="TXT":
             self.txt_o[int(stack[2])-1].setLevel(int(stack[3]))
-
+        elif stack[1]=="FTD":
+            s=int(int(stack[3])/512*64)
+            self.FTD.comm("output_set O"+stack[2]+" 1 "+str(s))   
+            
     def cmdMotor(self, stack):
         if stack[1]=="RIF":
             self.RIF.SetMotor(int(stack[2]),stack[3], int(stack[4]))
-        else: # TXT
+        elif stack[1]=="TXT": # TXT
             if stack[3]=="s":
                 self.txt_m[int(stack[2])-1].stop()
             elif stack[3]=="l":
@@ -366,7 +398,16 @@ class execThread(QThread):
             elif stack[3]=="r":
                 s=0-int(stack[4])
                 self.txt_m[int(stack[2])-1].setSpeed(s)
-
+        elif stack[1]=="FTD": # FTD
+            if stack[3]=="s":
+                self.FTD.comm("motor_set M"+stack[2]+" brake 0")
+            elif stack[3]=="l":
+                s=int(int(stack[4])/512*64)
+                self.FTD.comm("motor_set M"+stack[2]+" left "+str(s))
+            elif stack[3]=="r":
+                s=64/512*int(stack[4])
+                self.FTD.comm("motor_set M"+stack[2]+" right "+str(s))             
+                
     def cmdMotorEncoderSync(self, stack):
         m=int(stack[2])      # Output No.
         o=int(stack[3])   # Sync output
@@ -827,9 +868,10 @@ class editOutput(TouchDialog):
         
         self.interface=QComboBox()
         self.interface.setStyleSheet("font-size: 20px;")
-        self.interface.addItems(["RIF","TXT"])
+        self.interface.addItems(["RIF","TXT","FTD"])
 
         if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(1)
+        if self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(2)
         self.interface.currentIndexChanged.connect(self.ifChanged)
         k1.addWidget(self.interface)
         
@@ -914,9 +956,10 @@ class editMotor(TouchDialog):
         
         self.interface=QComboBox()
         self.interface.setStyleSheet("font-size: 20px;")
-        self.interface.addItems(["RIF","TXT"])
+        self.interface.addItems(["RIF","TXT","FTD"])
 
         if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(1)
+        if self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(2)
         self.interface.currentIndexChanged.connect(self.ifChanged)
         k1.addWidget(self.interface)
         
@@ -1873,11 +1916,11 @@ class FtcGuiApplication(TouchApplication):
         self.rem.setStyleSheet("font-size: 20px;")
         self.rem.doubleClicked.connect(self.remCodeLine)
         
-        self.upp = QPushButton("Up") #QCoreApplication.translate("main","/\"))
+        self.upp = QPushButton(QCoreApplication.translate("main","Up"))
         self.upp.setStyleSheet("font-size: 20px;")
         self.upp.clicked.connect(self.lineUp)
         
-        self.don = QPushButton("Dn") #QCoreApplication.translate("main","\/"))
+        self.don = QPushButton(QCoreApplication.translate("main","Dn"))
         self.don.setStyleSheet("font-size: 20px;")
         self.don.clicked.connect(self.lineDown)
         
@@ -2273,9 +2316,12 @@ class FtcGuiApplication(TouchApplication):
         else: s = self.RIF.GetDeviceTypeString()
                 
         if self.TXT==None: t = QCoreApplication.translate("m_interfaces","No TXT device")
-        else: t = t = QCoreApplication.translate("m_interfaces","TXT found")
+        else: t = QCoreApplication.translate("m_interfaces","TXT found")
         
-        text="<center>" + QCoreApplication.translate("m_interfaces","Hardware found:") + "<hr><i>" + s + "<hr>" + t
+        if self.FTD==None: u = QCoreApplication.translate("m_interfaces","No ftduino device")
+        else: u = "ftduino '"+self.FTD.comm("ftduino_id_get") + "' " + QCoreApplication.translate("m_interfaces","found")
+        
+        text="<center>" + QCoreApplication.translate("m_interfaces","Hardware found:") + "<hr><i>" + s + "<hr>" + t + "<hr>" + u
         
         t=TouchMessageBox(QCoreApplication.translate("m_interfaces","Interfaces"), self.mainwindow)
         t.setCancelButton()
@@ -2302,8 +2348,14 @@ class FtcGuiApplication(TouchApplication):
             self.TXT=txt.ftrobopy("auto")
             name, version = self.TXT.queryStatus()
         except:
-            self.TXT=None        
-    
+            self.TXT=None      
+            
+        if FTDUINO_DIRECT:
+            self.FTD=ftd.ftduino()
+            if self.FTD.getDevice()==None:
+                self.FTD=None
+        
+            
     def codeFromListWidget(self):
         self.code=[]
         for i in range(0,self.proglist.count()): self.code.append(self.proglist.item(i).text())
@@ -2327,7 +2379,7 @@ class FtcGuiApplication(TouchApplication):
             if self.start:
                 self.codeFromListWidget()
                 self.setMainWindow(False)
-                self.et = execThread(self.code, self.output, self.starter, self.RIF, self.TXT, self)
+                self.et = execThread(self.code, self.output, self.starter, self.RIF, self.TXT, self.FTD, self)
                 self.et.updateText.connect(self.updateText)
                 self.et.clearText.connect(self.clearText)
                 self.et.execThreadFinished.connect(self.execThreadFinished)
@@ -2504,7 +2556,7 @@ class FtcGuiApplication(TouchApplication):
         self.progItemDoubleClicked()
         try:
             s=self.proglist.item(self.proglist.currentRow()).text().split()[1]
-            if s=="RIF" or s=="TXT": self.lastIF=s
+            if s=="RIF" or s=="TXT" or s=="FTD": self.lastIF=s
         except:
             pass
         
@@ -2624,6 +2676,12 @@ class FtcGuiApplication(TouchApplication):
         self.proglist.setCurrentRow(crow)
         self.proglist.item(crow).setText(itm)
         self.codeSaved=False
+        
+        try:
+            s=self.proglist.item(self.proglist.currentRow()).text().split()[1]
+            if s=="RIF" or s=="TXT" or s=="FTD": self.lastIF=s
+        except:
+            pass
 
     def ecl_output(self, itm):
         return editOutput(itm,self.mainwindow).exec_()
