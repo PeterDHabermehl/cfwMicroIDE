@@ -147,7 +147,7 @@ class execThread(QThread):
             #
 
             if len(a)>2:
-                if ("Output"==a[0]) or ("WaitIn" in a[0]) or ("IfIn" in a[0]) or ("Motor" in a[0]):
+                if ("Output"==a[0]) or ("WaitIn" in a[0]) or ("IfIn" in a[0]) or ("Motor" in a[0]) or ("Query"==a[0]):
                     if a[1]=="RIF": 
                         if ("Motor" in a[0]):
                             rif_m[int(a[2])-1]=True
@@ -160,7 +160,7 @@ class execThread(QThread):
                             rif_i[int(a[4])-1]=True
                         if "Query"==a[0]:
                             if a[3]=="D": rif_i[int(a[2])-1]=True
-                    elif a[1]=="TXT":
+                    elif a[1]=="FTD": #muss TXT sein!
                         if ("Motor" in a[0]):
                             txt_m[int(a[2])-1]=True
                         elif ("Output" in a[0]):
