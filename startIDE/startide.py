@@ -464,11 +464,20 @@ class execThread(QThread):
             if stack[3]=="S":
                 v=str(self.RIF.Digital(int(stack[2])))
             elif stack[3]=="V":
-                tx="Not yet implemented"
+                if stack[2]=="1":
+                    tx=str(self.RIF.GetA1())
+                elif stack[2]=="2":
+                    tx=str(self.RIF.GetA2())
             elif stack[3]=="R":
-                tx="Not yet implemented"
+                if stack[2]=="X":
+                    tx=str(self.RIF.GetAX())
+                elif stack[2]=="Y":
+                    tx=str(self.RIF.GetAY())
             elif stack[3]=="D":
-                tx="Not yet implemented"
+                if stack[2]=="1":
+                    tx=str(self.RIF.GetD1())
+                elif stack[2]=="2":
+                    tx=str(self.RIF.GetD2())
             elif stack[3]=="C":
                 tx="Not yet implemented"                
         elif stack[1]== "TXT":
@@ -2513,7 +2522,7 @@ class FtcGuiApplication(TouchApplication):
             
         #init robo family
         
-        self.RIF=RoboInterface()
+        self.RIF=RoboInterface(bEnableDist=True)
         if not self.RIF.hasInterface(): self.RIF=None
 
         self.TXT=None
