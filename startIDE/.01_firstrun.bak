@@ -1,1 +1,1 @@
-Attention:<br>The rotation direction of the TXT motor outputs was inverted for RoboPRO compatibility. You might have to swap the plus and ground motor connectors at your model.
+<center><b>Great news:</b><br><br>startIDE now also supports the ftduino!<br>Have fun :-)

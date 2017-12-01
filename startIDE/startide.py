@@ -13,11 +13,14 @@ from datetime import datetime
 import translator
 
 try:
-    import ftduino_direct as ftd
+    import ftduino_direct_nix as ftd
     FTDUINO_DIRECT=True
 except:
     FTDUINO_DIRECT=False
     
+
+#FTTXTADDRESS="192.168.178.24"
+FTTXTADDRESS="auto"
 
 hostdir = os.path.dirname(os.path.realpath(__file__)) + "/"
 projdir = hostdir + "projects/"
@@ -122,10 +125,13 @@ class execThread(QThread):
         rif_i = txt_i = ftd_i = [False, False, False, False, False, False, False, False]
         
         #input types
-        txt_it = ftd_it = [1,1,1,1,1,1,1,1]  # 1=switch 2=voltage 3=resistance
+        txt_it = ftd_it = [0,0,0,0,0,0,0,0]  # 1=switch 2=voltage 3=resistance 4=distance
         txt_c = ftd_c = [0,0,0,0]            # 1=counter 2=distance
         
         # scan code for interfaces, jump and module tags, output and motor channels
+        
+        txtanaloginputfailure=""
+        ftdanaloginputfailure=""
         
         for line in self.codeList:
             a=line.split()
@@ -161,7 +167,7 @@ class execThread(QThread):
                             rif_i[int(a[4])-1]=True
                         if "Query"==a[0]:
                             if a[3]=="D": rif_i[int(a[2])-1]=True
-                    elif a[1]=="TXT": #muss TXT sein!
+                    elif a[1]=="TXT": #TXT
                         if ("Motor" in a[0]):
                             txt_m[int(a[2])-1]=True
                         elif ("Output" in a[0]):
@@ -176,9 +182,31 @@ class execThread(QThread):
                         if "MotorES"==a[0]:
                             txt_m[int(a[3])-1]=True
                         if "Query"==a[0]:
-                            if (a[3]=="S" or a[3]=="R" or a[3]=="V"):
-                                txt_i[int(a[2])-1]=True    
-                    elif a[1]=="FTD": 
+                            if (a[3]=="S" or a[3]=="R" or a[3]=="V" or a[3]=="D"):
+                                txt_i[int(a[2])-1]=True
+                                if (a[3]=="S"):
+                                    if (txt_it[int(a[2])-1]==0) or (txt_it[int(a[2])-1]==1):
+                                        txt_it[int(a[2])-1]=1
+                                    else:
+                                        txtanaloginputfailure=a[2]                                    
+                                elif (a[3]=="R"):
+                                    if (txt_it[int(a[2])-1]==0) or (txt_it[int(a[2])-1]==2):
+                                        txt_it[int(a[2])-1]=2
+                                    else:
+                                        txtanaloginputfailure=a[2]  
+                                elif (a[3]=="V"):
+                                    if (txt_it[int(a[2])-1]==0) or (txt_it[int(a[2])-1]==3):
+                                        txt_it[int(a[2])-1]=3
+                                    else:
+                                        txtanaloginputfailure=a[2]  
+                                elif (a[3]=="D"):
+                                    if (txt_it[int(a[2])-1]==0) or (txt_it[int(a[2])-1]==4):
+                                        txt_it[int(a[2])-1]=4
+                                    else:
+                                        txtanaloginputfailure=a[2]
+                            elif a[3]=="C":
+                                txt_c[int(a[2])-1]=True
+                    elif a[1]=="FTD": # ftduino
                         if ("Motor" in a[0]):
                             ftd_m[int(a[2])-1]=True
                         elif ("Output" in a[0]):
@@ -194,10 +222,12 @@ class execThread(QThread):
                             ftd_m[int(a[3])-1]=True
                         if "Query"==a[0]:
                             if (a[3]=="S" or a[3]=="R" or a[3]=="V"):
-                                txt_i[int(a[2])-1]=True  
+                                ftd_i[int(a[2])-1]=True  
             cnt=cnt+1
         
         self.clrOut()
+        
+        
         
         if self.requireTXT and self.TXT==None:
             self.msgOut(QCoreApplication.translate("exec","TXT not found!\nProgram terminated\n"))
@@ -207,6 +237,12 @@ class execThread(QThread):
             self.stop()
         elif self.requireFTD and self.FTD==None:
             self.msgOut(QCoreApplication.translate("exec","ftduino not found!\nProgram terminated\n"))
+            self.stop()
+        elif txtanaloginputfailure!="":
+            self.msgOut(QCoreApplication.translate("exec","TXT analog I")+txtanaloginputfailure+QCoreApplication.translate("exec","\ntypes inconsistent!\nProgram terminated\n"))
+            self.stop()
+        elif ftdanaloginputfailure!="":
+            self.msgOut(QCoreApplication.translate("exec","TXT analog I")+txtanaloginputfailure+QCoreApplication.translate("exec","\ntypes inconsistent!\nProgram terminated\n"))
             self.stop()
         elif mcnt<0:
             self.msgOut(QCoreApplication.translate("exec","MEnd found with-\nout Module!\nProgram terminated\n"))
@@ -224,7 +260,7 @@ class execThread(QThread):
             self.msgOut(QCoreApplication.translate("exec","TXT M3 and O5/O6\nused in parallel!\nProgram terminated\n"))
             self.stop()
         elif txt_m[3] and (txt_o[6] or txt_o[7]):
-            self.msgOut(QCoreApplication.translate("exec","TXT M1 and O7/O8\nused in parallel!\nProgram terminated\n"))
+            self.msgOut(QCoreApplication.translate("exec","TXT M4 and O7/O8\nused in parallel!\nProgram terminated\n"))
             self.stop()
         elif rif_m[0] and (rif_o[0] or rif_o[1]):
             self.msgOut(QCoreApplication.translate("exec","RIF M1 and O1/O2\nused in parallel!\nProgram terminated\n"))
@@ -236,7 +272,7 @@ class execThread(QThread):
             self.msgOut(QCoreApplication.translate("exec","RIF M3 and O5/O6\nused in parallel!\nProgram terminated\n"))
             self.stop()
         elif rif_m[3] and (rif_o[6] or rif_o[7]):
-            self.msgOut(QCoreApplication.translate("exec","RIF M1 and O7/O8\nused in parallel!\nProgram terminated\n"))
+            self.msgOut(QCoreApplication.translate("exec","RIF M4 and O7/O8\nused in parallel!\nProgram terminated\n"))
             self.stop()
         elif ftd_m[0] and (ftd_o[0] or ftd_o[1]):
             self.msgOut(QCoreApplication.translate("exec","FTD M1 and O1/O2\nused in parallel!\nProgram terminated\n"))
@@ -248,7 +284,7 @@ class execThread(QThread):
             self.msgOut(QCoreApplication.translate("exec","FTD M3 and O5/O6\nused in parallel!\nProgram terminated\n"))
             self.stop()
         elif ftd_m[3] and (ftd_o[6] or ftd_o[7]):
-            self.msgOut(QCoreApplication.translate("exec","FTD M1 and O7/O8\nused in parallel!\nProgram terminated\n"))
+            self.msgOut(QCoreApplication.translate("exec","FTD M4 and O7/O8\nused in parallel!\nProgram terminated\n"))
             self.stop()        
         
         if not self.halt and self.RIF!=None:
@@ -286,7 +322,10 @@ class execThread(QThread):
                 if txt_o[i]:
                     self.txt_o[i]=self.TXT.output(i+1)
                 if txt_i[i]:
-                    self.txt_i[i]=self.TXT.input(i+1)
+                    if txt_it[i]==1: self.txt_i[i]=self.TXT.input(i+1)
+                    elif txt_it[i]==2: self.txt_i[i]=self.TXT.resistor(i+1)
+                    elif txt_it[i]==3: self.txt_i[i]=self.TXT.voltage(i+1)
+                    elif txt_it[i]==4: self.txt_i[i]=self.TXT.ultrasonic(i+1)
                 if i<4:
                     if txt_m[i]: self.txt_m[i]=self.TXT.motor(i+1)
             
@@ -392,11 +431,11 @@ class execThread(QThread):
             if stack[3]=="S":
                 v=str(self.txt_i[int(stack[2])-1].state())
             elif stack[3]=="V":
-                tx="Not yet implemented"
+                v=str(self.txt_i[int(stack[2])-1].voltage())
             elif stack[3]=="R":
-                tx="Not yet implemented"
+                v=str(self.txt_i[int(stack[2])-1].value())
             elif stack[3]=="D":
-                tx="Not yet implemented"
+                v=str(self.txt_i[int(stack[2])-1].distance())
             elif stack[3]=="C":
                 tx="Not yet implemented"
         elif stack[1]== "FTD":
@@ -1844,11 +1883,16 @@ class editQuery(TouchDialog):
                 self.port.addItems(["A X","A Y"])
             elif self.iType.currentIndex()==3:
                 self.port.addItems(["D 1","D 2"])
-        else:
+        elif self.interface.currentText()=="TXT":
+            if self.iType.currentIndex()>=0 and self.iType.currentIndex()<=3:
+                self.port.addItems(["I 1","I 2","I 3","I 4","I 5","I 6","I 7","I 8"])
+            elif self.iType.currentIndex()==4:
+                self.port.addItems(["C 1","C 2","C 3","C 4"]) 
+        elif self.interface.currentText()=="FTD":
             if self.iType.currentIndex()>=0 and self.iType.currentIndex()<=2:
                 self.port.addItems(["I 1","I 2","I 3","I 4","I 5","I 6","I 7","I 8"])
             elif self.iType.currentIndex()==3:
-                self.port.addItems(["C 1","C 2"]) 
+                self.port.addItems(["C 1"]) 
             elif self.iType.currentIndex()==4:
                 self.port.addItems(["C 1","C 2","C 3","C 4"]) 
         self.port.setCurrentIndex(min(max(0,m),self.port.count()-1))
@@ -1858,8 +1902,6 @@ class editQuery(TouchDialog):
         a=self.value.text()
         t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Value"),a,self).exec_()
         self.value.setText(t)
-        
-
         
         
 class FtcGuiApplication(TouchApplication):
@@ -1872,12 +1914,8 @@ class FtcGuiApplication(TouchApplication):
         
         self.RIF=None
         self.TXT=None
+        self.FTD=None
         self.etf=False
-        
-        self.initIFs()
-        
-        self.lastIF="TXT"
-        if self.RIF != None and self.TXT==None: self.lastIF="RIF"
         
         # load last project
         
@@ -2056,6 +2094,12 @@ class FtcGuiApplication(TouchApplication):
                 os.remove(hostdir+".01_firstrun")
         except:
             pass
+        
+        # init the interfaces
+        self.initIFs()
+        
+        self.lastIF="TXT"
+        if self.RIF != None and self.TXT==None: self.lastIF="RIF"
         
         self.exec_()
     
@@ -2430,7 +2474,7 @@ class FtcGuiApplication(TouchApplication):
 
         self.TXT=None
         try:
-            self.TXT=txt.ftrobopy("auto")
+            self.TXT=txt.ftrobopy(FTTXTADDRESS)
             name, version = self.TXT.queryStatus()
         except:
             self.TXT=None      
