@@ -13,7 +13,7 @@ from datetime import datetime
 import translator
 
 try:
-    import ftduino_direct_nix as ftd
+    import ftduino_direct as ftd
     FTDUINO_DIRECT=True
 except:
     FTDUINO_DIRECT=False
@@ -132,6 +132,7 @@ class execThread(QThread):
         
         txtanaloginputfailure=""
         ftdanaloginputfailure=""
+        ftdcounterinputfailure=""
         
         for line in self.codeList:
             a=line.split()
@@ -222,7 +223,32 @@ class execThread(QThread):
                             ftd_m[int(a[3])-1]=True
                         if "Query"==a[0]:
                             if (a[3]=="S" or a[3]=="R" or a[3]=="V"):
-                                ftd_i[int(a[2])-1]=True  
+                                ftd_i[int(a[2])-1]=True
+                                if (a[3]=="S"):
+                                    if (ftd_it[int(a[2])-1]==0) or (ftd_it[int(a[2])-1]==1):
+                                        ftd_it[int(a[2])-1]=1
+                                    else:
+                                        ftdanaloginputfailure=a[2]                                    
+                                elif (a[3]=="R"):
+                                    if (ftd_it[int(a[2])-1]==0) or (ftd_it[int(a[2])-1]==2):
+                                        ftd_it[int(a[2])-1]=2
+                                    else:
+                                        ftdanaloginputfailure=a[2]  
+                                elif (a[3]=="V"):
+                                    if (ftd_it[int(a[2])-1]==0) or (ftd_it[int(a[2])-1]==3):
+                                        ftd_it[int(a[2])-1]=3
+                                    else:
+                                        ftdanaloginputfailure=a[2]  
+                            elif a[3]=="C":                                
+                                if (ftd_c[int(a[2])-1]==1) or (ftd_c[int(a[2])-1]==0):
+                                    ftd_c[int(a[2])-1]=1
+                                else:
+                                    ftdcounterinputfailure=a[2] 
+                            elif  a[3]=="D":
+                                if (ftd_c[int(a[2])-1]==2) or (ftd_c[int(a[2])-1]==0):
+                                    ftd_c[int(a[2])-1]=2
+                                else:
+                                    ftdcounterinputfailure=a[2] 
             cnt=cnt+1
         
         self.clrOut()
@@ -242,7 +268,10 @@ class execThread(QThread):
             self.msgOut(QCoreApplication.translate("exec","TXT analog I")+txtanaloginputfailure+QCoreApplication.translate("exec","\ntypes inconsistent!\nProgram terminated\n"))
             self.stop()
         elif ftdanaloginputfailure!="":
-            self.msgOut(QCoreApplication.translate("exec","TXT analog I")+txtanaloginputfailure+QCoreApplication.translate("exec","\ntypes inconsistent!\nProgram terminated\n"))
+            self.msgOut(QCoreApplication.translate("exec","FTD analog I")+ftdanaloginputfailure+QCoreApplication.translate("exec","\ntypes inconsistent!\nProgram terminated\n"))
+            self.stop()
+        elif ftdcounterinputfailure!="":
+            self.msgOut(QCoreApplication.translate("exec","FTD counter C")+ftdcounterinputfailure+QCoreApplication.translate("exec","\ncounter/distance mismatch!\nProgram terminated\n"))
             self.stop()
         elif mcnt<0:
             self.msgOut(QCoreApplication.translate("exec","MEnd found with-\nout Module!\nProgram terminated\n"))
@@ -328,7 +357,22 @@ class execThread(QThread):
                     elif txt_it[i]==4: self.txt_i[i]=self.TXT.ultrasonic(i+1)
                 if i<4:
                     if txt_m[i]: self.txt_m[i]=self.TXT.motor(i+1)
-            
+                
+        # FTD I/O initialisieren...
+        
+        if self.FTD!=None and not self.halt:
+            for i in range(0,8):           
+                if ftd_it[i]==2:
+                    self.FTD.comm("input_set_mode I"+str(i+1)+" Resistance")
+                elif ftd_it[i]==3:
+                    self.FTD.comm("input_set_mode I"+str(i+1)+" Voltage")
+        
+            if ftd_it[0]==2:
+                self.FTD.comm("ultrasonic_enable True")
+            else:
+                self.FTD.comm("ultrasonic_enable False")
+        
+        # und los gehts
         
         if not self.halt:
             self.msgOut("<Start>")
@@ -442,11 +486,11 @@ class execThread(QThread):
             if stack[3]=="S":
                 v=self.FTD.comm("input_get i"+stack[2])
             elif stack[3]=="V":
-                tx="Not yet implemented"
+                v=self.FTD.comm("input_get i"+stack[2])
             elif stack[3]=="R":
-                tx="Not yet implemented"
+                v=self.FTD.comm("input_get i"+stack[2])
             elif stack[3]=="D":
-                tx="Not yet implemented"
+                v=self.FTD.comm("ultrasonic_get")
             elif stack[3]=="C":
                 tx="Not yet implemented"
         
