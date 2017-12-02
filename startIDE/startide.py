@@ -379,6 +379,8 @@ class execThread(QThread):
             self.count=0
         self.parent.processEvents()        
         
+        self.timestamp=time.time()
+        
         while not self.halt and self.count<len(self.codeList):
             line=self.codeList[self.count]
             if self.trace: self.cmdPrint(str(self.count)+":"+line)
@@ -431,6 +433,10 @@ class execThread(QThread):
             if "STEPON" in line:     
                 self.singlestep=True
                 self.cmdPrint("STEPON: tap screen!")
+            elif "GETELAPSEDTIME" in line:
+                self.cmdPrint(str(time.time()-self.timestamp))
+            elif "TIMERCLEAR" in line:
+                self.timestamp=time.time()
             elif "STEPOFF" in line:  self.singlestep=False
         elif stack[0]== "Stop":     self.count=len(self.codeList)
         elif stack[0]== "Output":   self.cmdOutput(stack)
