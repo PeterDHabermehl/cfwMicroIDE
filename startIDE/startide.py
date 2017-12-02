@@ -351,7 +351,7 @@ class execThread(QThread):
                 if txt_o[i]:
                     self.txt_o[i]=self.TXT.output(i+1)
                 if txt_i[i]:
-                    if txt_it[i]==1: self.txt_i[i]=self.TXT.input(i+1)
+                    if (txt_it[i]==1) or (txt_it[i]==0): self.txt_i[i]=self.TXT.input(i+1)
                     elif txt_it[i]==2: self.txt_i[i]=self.TXT.resistor(i+1)
                     elif txt_it[i]==3: self.txt_i[i]=self.TXT.voltage(i+1)
                     elif txt_it[i]==4: self.txt_i[i]=self.TXT.ultrasonic(i+1)
