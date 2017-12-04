@@ -518,7 +518,7 @@ class execThread(QThread):
         elif stack[1]=="TXT":
             self.txt_o[int(stack[2])-1].setLevel(int(stack[3]))
         elif stack[1]=="FTD":
-            s=int(int(stack[3])/512*64)
+            s=int(stack[3])
             self.FTD.comm("output_set O"+stack[2]+" 1 "+str(s))   
             
     def cmdMotor(self, stack):
