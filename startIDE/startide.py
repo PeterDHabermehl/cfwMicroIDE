@@ -221,7 +221,7 @@ class execThread(QThread):
                             ftd_i[int(a[3])-1]=True
                         if "MotorES"==a[0]:
                             ftd_m[int(a[3])-1]=True
-                        if "Query"==a[0]:
+                        if "Query"==a[0] or "IfIn"==a[0]:
                             if (a[3]=="S" or a[3]=="R" or a[3]=="V"):
                                 ftd_i[int(a[2])-1]=True
                                 if (a[3]=="S"):
@@ -449,6 +449,8 @@ class execThread(QThread):
         elif stack[0]== "LoopTo":   self.cmdLoopTo(stack)
         elif stack[0]== "WaitInDig": self.cmdWaitForInputDig(stack)
         elif stack[0]== "IfInDig":  self.cmdIfInputDig(stack)
+        elif stack[0]== "WaitIn":   self.cmdWaitForInput(stack)
+        elif stack[0]== "IfIn":     self.cmdIfInput(stack)
         elif stack[0]== "Print":    self.cmdPrint(line[6:])
         elif stack[0]== "Query":    self.cmdQuery(stack)
         elif stack[0]== "Clear":    self.clrOut()
@@ -805,6 +807,72 @@ class execThread(QThread):
                     self.halt=True
                 else:
                     self.count=n
+
+    def cmdIfInput(self,stack):
+        tx = v = ""
+        
+        if stack[1] == "RIF":
+            if stack[3]=="S":
+                v=str(self.RIF.Digital(int(stack[2])))
+            elif stack[3]=="V":
+                if stack[2]=="1":
+                    tx=str(self.RIF.GetA1())
+                elif stack[2]=="2":
+                    tx=str(self.RIF.GetA2())
+            elif stack[3]=="R":
+                if stack[2]=="X":
+                    tx=str(self.RIF.GetAX())
+                elif stack[2]=="Y":
+                    tx=str(self.RIF.GetAY())
+            elif stack[3]=="D":
+                if stack[2]=="1":
+                    tx=str(self.RIF.GetD1())
+                elif stack[2]=="2":
+                    tx=str(self.RIF.GetD2())
+            elif stack[3]=="C":
+                tx="Not yet implemented"                
+        elif stack[1]== "TXT":
+            if stack[3]=="S":
+                v=str(self.txt_i[int(stack[2])-1].state())
+            elif stack[3]=="V":
+                v=str(self.txt_i[int(stack[2])-1].voltage())
+            elif stack[3]=="R":
+                v=str(self.txt_i[int(stack[2])-1].value())
+            elif stack[3]=="D":
+                v=str(self.txt_i[int(stack[2])-1].distance())
+            elif stack[3]=="C":
+                tx="Not yet implemented"
+        elif stack[1]== "FTD":
+            if stack[3]=="S":
+                v=self.FTD.comm("input_get i"+stack[2])
+            elif stack[3]=="V":
+                v=self.FTD.comm("input_get i"+stack[2])
+            elif stack[3]=="R":
+                v=self.FTD.comm("input_get i"+stack[2])
+            elif stack[3]=="D":
+                v=self.FTD.comm("ultrasonic_get")
+            elif stack[3]=="C":
+                tx="Not yet implemented"
+        v=float(v)        
+        val=float(stack[5])
+        j=False
+
+        if stack[4]=="<" and (v<val): j=True
+        elif stack[4]=="==" and (v==val): j=True
+        elif stack[4]=="!=" and (v!=val): j=True
+        elif stack[4]==">" and (v>val): j=True
+        
+        if j:
+            n=-1
+            for line in self.jmpTable:
+                if stack[6]==line[0]: n=line[1]-1
+
+            if n==-1:
+                self.msgOut("IfInput jump tag not found!")
+                self.halt=True
+            else:
+                self.count=n        
+
                     
     def cmdCall(self, stack):
         n=-1
@@ -991,6 +1059,7 @@ class editIfInputDig(TouchDialog):
         k9.addLayout(k2)
         
         self.layout.addLayout(k9)
+        self.layout.addStretch()
         
         l=QLabel(QCoreApplication.translate("ecl","Condition"))
         l.setStyleSheet("font-size: 20px;")
@@ -1004,18 +1073,23 @@ class editIfInputDig(TouchDialog):
         
         self.layout.addStretch()
         
-        self.tags=QListWidget()
+        l=QLabel(QCoreApplication.translate("ecl","Target"))
+        l.setStyleSheet("font-size: 20px;")
+        self.layout.addWidget(l)
+        
+        self.tags=QComboBox()
         self.tags.setStyleSheet("font-size: 20px;")
         self.tags.addItems(self.taglist)
 
         try:
             if self.cmdline.split()[4] in self.taglist:
                 for i in range(self.tags.count()):
-                    if self.cmdline.split()[4]==self.tags.item(i).text(): self.tags.setCurrentRow(i)
+                    if self.cmdline.split()[4]==self.tags.item(i).text(): self.tags.setCurrentIndex(i)
         except:
-            self.tags.setCurrentRow(0)
+            self.tags.setCurrentIndex(0)
             
         self.layout.addWidget(self.tags)
+        self.layout.addStretch()
         
         self.centralWidget.setLayout(self.layout)
         
@@ -1023,7 +1097,7 @@ class editIfInputDig(TouchDialog):
         return self.cmdline
     
     def on_confirm(self):
-        self.cmdline="IfInDig " +self.interface.currentText()+ " " + self.port.currentText()[2:] + " " + self.thd.currentText() + " " + self.tags.item(self.tags.currentRow()).text()
+        self.cmdline="IfInDig " +self.interface.currentText()+ " " + self.port.currentText()[2:] + " " + self.thd.currentText() + " " + self.tags.itemText(self.tags.currentIndex())
         self.close()
 
 class editOutput(TouchDialog):
@@ -1968,7 +2042,7 @@ class editIfInput(TouchDialog):
         
         self.cmdline=cmdline
         self.taglist=taglist
-
+        
     def exec_(self):
     
         self.confirm = self.titlebar.addConfirm()
@@ -1976,16 +2050,18 @@ class editIfInput(TouchDialog):
     
         self.titlebar.setCancelButton()
         
+        # Aussenrahmen
         self.layout=QVBoxLayout()
         
+        # VBox
         k1=QVBoxLayout()
         l=QLabel(QCoreApplication.translate("ecl", "Device"))
-        l.setStyleSheet("font-size: 20px;")
+        l.setStyleSheet("font-size: 18px;")
         
         k1.addWidget(l)
         
         self.interface=QComboBox()
-        self.interface.setStyleSheet("font-size: 20px;")
+        self.interface.setStyleSheet("font-size: 18px;")
         self.interface.addItems(["RIF","TXT","FTD"])
 
         if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(1)
@@ -1994,15 +2070,15 @@ class editIfInput(TouchDialog):
         self.interface.activated.connect(self.ifChanged)
         k1.addWidget(self.interface)
         
-        #self.layout.addStretch()
+        self.layout.addStretch()
         
         k2=QVBoxLayout()
         l=QLabel(QCoreApplication.translate("ecl","Port"))
-        l.setStyleSheet("font-size: 20px;")
+        l.setStyleSheet("font-size: 18px;")
         k2.addWidget(l)
 
         self.port=QComboBox()
-        self.port.setStyleSheet("font-size: 20px;")
+        self.port.setStyleSheet("font-size: 18px;")
         self.port.addItem("d")
         
         k2.addWidget(self.port)
@@ -2014,88 +2090,83 @@ class editIfInput(TouchDialog):
         
         self.layout.addLayout(k8)        
         
-        k44=QHBoxLayout()
-        k4=QVBoxLayout()    
+        
+        k4=QVBoxLayout()
         l=QLabel(QCoreApplication.translate("ecl","Inp. type"))
-        l.setStyleSheet("font-size: 20px;")
+        l.setStyleSheet("font-size: 18px;")
         k4.addWidget(l)
         
         self.iType=QComboBox()
-        self.iType.setStyleSheet("font-size: 20px;")
+        self.iType.setStyleSheet("font-size: 18px;")
             
         self.iType.activated.connect(self.ifChanged)
 
         k4.addWidget(self.iType)
-        
-        k44.addLayout(k4)
-        
-        k441=QVBoxLayout()
+                
+        k5=QVBoxLayout()
         l=QLabel(QCoreApplication.translate("ecl","Operator"))
-        l.setStyleSheet("font-size:20px;")
-        k441.addWidget(l)
+        l.setStyleSheet("font-size: 18px;")
+        k5.addWidget(l)
         
         self.operator=QComboBox()
-        self.operator.addItems([" <","==","!="," >"])
-        s=self.cmdline.split()[1]
-        if s=="<": self.operator.setCurrentIndex(0)
-        elif s=="==": self.operator.setCurrentIndex(1)
-        elif s=="!=": self.operator.setCurrentIndex(2)        
-        elif s==">": self.operator.setCurrentIndex(3)
+        self.operator.setStyleSheet("font-size: 18px;")
+        self.operator.addItems(["  <", " ==", " !=", "  >"])
+
+        x=self.cmdline.split()[4]
         
-        k441.addWidget(self.operator)
+        if x=="<":    self.operator.setCurrentIndex(0)
+        elif x=="==": self.operator.setCurrentIndex(1)
+        elif x=="!=": self.operator.setCurrentIndex(2)
+        elif x==">":  self.operator.setCurrentIndex(3)
         
-        k44.addLayout(k441)
-        
-        self.layout.addLayout(k44)
-        
-        k3=QVBoxLayout()
-        l=QLabel(QCoreApplication.translate("ecl","Value"))
-        l.setStyleSheet("font-size: 20px;")
-        k3.addWidget(l)     
-        
-        self.value=QLineEdit()
-        self.value.setReadOnly(True)
-        self.value.setStyleSheet("font-size: 20px;")
-            
-        try:
-            self.value.setText(self.cmdline.split()[6])
-        except:
-            self.value.setText("")
-        
-        self.value.mousePressEvent=self.getValue
-        k3.addWidget(self.value)
-        
-        k33=QHBoxLayout()
-        k34=QVBoxLayout()
-        l=QLabel(QCoreApplication.translate("ecl","Target"))
-        l.setStyleSheet("font-size: 20px;")
-        k34.addWidget(l)
-        k33.addLayout(k3)
-        k33.addLayout(k34)
-        
-        
-        k9=QVBoxLayout()
+        k5.addWidget(self.operator)
+
+        k9=QHBoxLayout()
         k9.addLayout(k4)
         k9.addStretch()
-        k9.addLayout(k33)
+        k9.addLayout(k5)
         
         self.layout.addLayout(k9)
         
         
-        self.layout.addStretch() 
+        k3=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Value"))
+        l.setStyleSheet("font-size: 18px;")
+        k3.addWidget(l)     
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 18px;")
+            
+        self.value.setText(self.cmdline.split()[5])
+        self.value.mousePressEvent=self.getValue
+        k3.addWidget(self.value)
+        
+        self.layout.addLayout(k3)
+        self.layout.addStretch()
+        
+        
+        kb=QVBoxLayout()
+        
+        l=QLabel(QCoreApplication.translate("ecl","Target"))
+        l.setStyleSheet("font-size: 18px;")
+        kb.addWidget(l)
         
         self.tags=QComboBox()
-        self.tags.setStyleSheet("font-size: 20px;")
+        self.tags.setStyleSheet("font-size: 18px;")
         self.tags.addItems(self.taglist)
 
         try:
             if self.cmdline.split()[6] in self.taglist:
                 for i in range(self.tags.count()):
-                    if self.cmdline.split()[4]==self.tags.item(i).text(): self.tags.setCurrentIndex(i)
+                    if self.cmdline.split()[6]==self.tags.item(i).text(): self.tags.setCurrentIndex(i)
         except:
             self.tags.setCurrentIndex(0)
-            
-        self.layout.addWidget(self.tags)
+        
+        kb.addWidget(self.tags)
+        
+        self.layout.addLayout(kb)
+        self.layout.addStretch()                
         
         self.centralWidget.setLayout(self.layout)
         
@@ -2118,14 +2189,17 @@ class editIfInput(TouchDialog):
         return self.cmdline
     
     def on_confirm(self):
-        self.cmdline="Query " +self.interface.currentText()+ " " + self.port.currentText()[2:] + " "
-        d="S"
-        if self.iType.currentIndex()==0: d="S"
+        self.cmdline="IfIn " +self.interface.currentText()+ " " + self.port.currentText()[2:] + " "
+        if self.iType.currentIndex()==0:   d="S"
         elif self.iType.currentIndex()==1: d="V"
         elif self.iType.currentIndex()==2: d="R"
         elif self.iType.currentIndex()==3: d="D"               
         elif self.iType.currentIndex()==4: d="C"
-        self.cmdline=self.cmdline + d + " " + self.value.text()
+        
+        self.cmdline=self.cmdline + d + " " + self.operator.itemText(self.operator.currentIndex()).strip()
+        self.cmdline=self.cmdline + " " + self.value.text()
+        self.cmdline=self.cmdline + " " + self.tags.itemText(self.tags.currentIndex())
+        
         self.close()
     
     def ifChanged(self):
@@ -2173,10 +2247,10 @@ class editIfInput(TouchDialog):
     def getValue(self,m):
         a=self.value.text()
         t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Value"),a,self).exec_()
+        if not t.isnumeric(): t=a
         self.value.setText(t)
 
-
-class editWaitForInputDig(TouchDialog):
+class editWaitForInput(TouchDialog):
     def __init__(self, cmdline, parent=None):
         pass
         
