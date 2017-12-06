@@ -809,52 +809,54 @@ class execThread(QThread):
                     self.count=n
 
     def cmdIfInput(self,stack):
-        tx = v = ""
+        tx = ""
+        v=-1
         
         if stack[1] == "RIF":
             if stack[3]=="S":
-                v=str(self.RIF.Digital(int(stack[2])))
+                v=float(self.RIF.Digital(int(stack[2])))
             elif stack[3]=="V":
                 if stack[2]=="1":
-                    tx=str(self.RIF.GetA1())
+                    v=float(self.RIF.GetA1())
                 elif stack[2]=="2":
-                    tx=str(self.RIF.GetA2())
+                    v=float(self.RIF.GetA2())
             elif stack[3]=="R":
                 if stack[2]=="X":
-                    tx=str(self.RIF.GetAX())
+                    v=float(self.RIF.GetAX())
                 elif stack[2]=="Y":
-                    tx=str(self.RIF.GetAY())
+                    v=float(self.RIF.GetAY())
             elif stack[3]=="D":
                 if stack[2]=="1":
-                    tx=str(self.RIF.GetD1())
+                    v=float(self.RIF.GetD1())
                 elif stack[2]=="2":
-                    tx=str(self.RIF.GetD2())
+                    v=float(self.RIF.GetD2())
             elif stack[3]=="C":
                 tx="Not yet implemented"                
         elif stack[1]== "TXT":
             if stack[3]=="S":
-                v=str(self.txt_i[int(stack[2])-1].state())
+                v=float(self.txt_i[int(stack[2])-1].state())
             elif stack[3]=="V":
-                v=str(self.txt_i[int(stack[2])-1].voltage())
+                v=float(self.txt_i[int(stack[2])-1].voltage())
             elif stack[3]=="R":
-                v=str(self.txt_i[int(stack[2])-1].value())
+                v=float(self.txt_i[int(stack[2])-1].value())
             elif stack[3]=="D":
-                v=str(self.txt_i[int(stack[2])-1].distance())
+                v=float(self.txt_i[int(stack[2])-1].distance())
             elif stack[3]=="C":
                 tx="Not yet implemented"
         elif stack[1]== "FTD":
             if stack[3]=="S":
-                v=self.FTD.comm("input_get i"+stack[2])
+                v=float(self.FTD.comm("input_get i"+stack[2]))
             elif stack[3]=="V":
-                v=self.FTD.comm("input_get i"+stack[2])
+                v=float(self.FTD.comm("input_get i"+stack[2]))
             elif stack[3]=="R":
-                v=self.FTD.comm("input_get i"+stack[2])
+                v=float(self.FTD.comm("input_get i"+stack[2]))
             elif stack[3]=="D":
-                v=self.FTD.comm("ultrasonic_get")
+                v=float(self.FTD.comm("ultrasonic_get"))
             elif stack[3]=="C":
                 tx="Not yet implemented"
-        v=float(v)        
+       
         val=float(stack[5])
+        print("DEBUG:",v,stack[4],val)
         j=False
 
         if stack[4]=="<" and (v<val): j=True
