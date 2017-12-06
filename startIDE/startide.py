@@ -163,11 +163,14 @@ class execThread(QThread):
                             rif_o[int(a[2])-1]=True
                         elif ("IfInDig"==a[0]) or ("WaitInDig"==a[0]):
                             rif_i[int(a[2])-1]=True
+                        elif (("IfIn"==a[0]) or ("WaitIn"==a[0])) and a[3]=="S":
+                            rif_i[int(a[2])-1]=True
                         if "MotorP"==a[0]:
                             rif_i[int(a[3])-1]=True
                             rif_i[int(a[4])-1]=True
                         if "Query"==a[0]:
-                            if a[3]=="D": rif_i[int(a[2])-1]=True
+                            pass
+                            #if a[3]=="D": rif_i[int(a[2])-1]=True
                     elif a[1]=="TXT": #TXT
                         if ("Motor" in a[0]):
                             txt_m[int(a[2])-1]=True
@@ -182,7 +185,7 @@ class execThread(QThread):
                             txt_i[int(a[3])-1]=True
                         if "MotorES"==a[0]:
                             txt_m[int(a[3])-1]=True
-                        if "Query"==a[0]:
+                        if "Query"==a[0] or "IfIn"==a[0] or "WaitIn"==a[0]:
                             if (a[3]=="S" or a[3]=="R" or a[3]=="V" or a[3]=="D"):
                                 txt_i[int(a[2])-1]=True
                                 if (a[3]=="S"):
@@ -221,7 +224,7 @@ class execThread(QThread):
                             ftd_i[int(a[3])-1]=True
                         if "MotorES"==a[0]:
                             ftd_m[int(a[3])-1]=True
-                        if "Query"==a[0] or "IfIn"==a[0]:
+                        if "Query"==a[0] or "IfIn"==a[0] or "WaitIn"==a[0]:
                             if (a[3]=="S" or a[3]=="R" or a[3]=="V"):
                                 ftd_i[int(a[2])-1]=True
                                 if (a[3]=="S"):
@@ -772,6 +775,83 @@ class execThread(QThread):
     def timerstop(self):
         self.tOut=True            
     
+    def cmdWaitForInput(self,stack):
+        tx = ""
+        v=-1
+        
+        self.tOut=False
+        self.tAct=False
+        
+        if len(stack)>6:
+            if stack[6].isnumeric():
+                if int(stack[6])>0:
+                    self.timer = QTimer()
+                    self.timer.setSingleShot(True)
+                    self.timer.timeout.connect(self.timerstop)
+                    self.timer.start(int(stack[6]))  
+                    self.tAct=True
+
+        
+        j=False
+        while not (j or self.halt or self.tOut):
+            self.parent.processEvents()
+            if stack[1] == "RIF":
+                if stack[3]=="S":
+                    v=float(self.RIF.Digital(int(stack[2])))
+                elif stack[3]=="V":
+                    if stack[2]=="1":
+                        v=float(self.RIF.GetA1())
+                    elif stack[2]=="2":
+                        v=float(self.RIF.GetA2())
+                elif stack[3]=="R":
+                    if stack[2]=="X":
+                        v=float(self.RIF.GetAX())
+                    elif stack[2]=="Y":
+                        v=float(self.RIF.GetAY())
+                elif stack[3]=="D":
+                    if stack[2]=="1":
+                        v=float(self.RIF.GetD1())
+                    elif stack[2]=="2":
+                        v=float(self.RIF.GetD2())
+                elif stack[3]=="C":
+                    tx="Not yet implemented"                
+            elif stack[1]== "TXT":
+                if stack[3]=="S":
+                    v=float(self.txt_i[int(stack[2])-1].state())
+                elif stack[3]=="V":
+                    v=float(self.txt_i[int(stack[2])-1].voltage())
+                elif stack[3]=="R":
+                    v=float(self.txt_i[int(stack[2])-1].value())
+                elif stack[3]=="D":
+                    v=float(self.txt_i[int(stack[2])-1].distance())
+                elif stack[3]=="C":
+                    tx="Not yet implemented"
+            elif stack[1]== "FTD":
+                if stack[3]=="S":
+                    v=float(self.FTD.comm("input_get i"+stack[2]))
+                elif stack[3]=="V":
+                    v=float(self.FTD.comm("input_get i"+stack[2]))
+                elif stack[3]=="R":
+                    v=float(self.FTD.comm("input_get i"+stack[2]))
+                elif stack[3]=="D":
+                    v=float(self.FTD.comm("ultrasonic_get"))
+                elif stack[3]=="C":
+                    tx="Not yet implemented"
+        
+            val=float(stack[5])
+
+            j=False
+
+            if stack[4]=="<" and (v<val): j=True
+            elif stack[4]=="==" and (v==val): j=True
+            elif stack[4]=="!=" and (v!=val): j=True
+            elif stack[4]==">" and (v>val): j=True
+            self.parent.processEvents()
+        # stop gedrueckt?    
+        if self.tAct:
+            self.timer.stop()
+        self.parent.processEvents()
+    
     def cmdIfInputDig(self,stack):
         if stack[1]=="RIF":
             if (stack[3]=="True" and self.RIF.Digital(int(stack[2]))) or (stack[3]=="False" and not self.RIF.Digital(int(stack[2]))):
@@ -856,7 +936,7 @@ class execThread(QThread):
                 tx="Not yet implemented"
        
         val=float(stack[5])
-        print("DEBUG:",v,stack[4],val)
+
         j=False
 
         if stack[4]=="<" and (v<val): j=True
@@ -2003,8 +2083,8 @@ class editQuery(TouchDialog):
             self.iType.addItems([QCoreApplication.translate("ecl","switch"),
                                 QCoreApplication.translate("ecl","voltage"),
                                 QCoreApplication.translate("ecl","resistance"),
-                                QCoreApplication.translate("ecl","distance"),
-                                QCoreApplication.translate("ecl","counter")])
+                                QCoreApplication.translate("ecl","distance")]) #,
+                                #QCoreApplication.translate("ecl","counter")])
         self.iType.setCurrentIndex(m)
 
         m=self.port.currentIndex()
@@ -2216,8 +2296,8 @@ class editIfInput(TouchDialog):
             self.iType.addItems([QCoreApplication.translate("ecl","switch"),
                                 QCoreApplication.translate("ecl","voltage"),
                                 QCoreApplication.translate("ecl","resistance"),
-                                QCoreApplication.translate("ecl","distance"),
-                                QCoreApplication.translate("ecl","counter")])
+                                QCoreApplication.translate("ecl","distance")])#,
+                                #QCoreApplication.translate("ecl","counter")])
         self.iType.setCurrentIndex(m)
 
         m=self.port.currentIndex()
@@ -2254,7 +2334,218 @@ class editIfInput(TouchDialog):
 
 class editWaitForInput(TouchDialog):
     def __init__(self, cmdline, parent=None):
-        pass
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","WaitIn"), parent)
+        
+        self.cmdline=cmdline
+        
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+        
+        # Aussenrahmen
+        self.layout=QVBoxLayout()
+        
+        # VBox
+        k1=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Device"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        k1.addWidget(l)
+        
+        self.interface=QComboBox()
+        self.interface.setStyleSheet("font-size: 18px;")
+        self.interface.addItems(["RIF","TXT","FTD"])
+
+        if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(1)
+        elif self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(2)
+        
+        self.interface.activated.connect(self.ifChanged)
+        k1.addWidget(self.interface)
+        
+        self.layout.addStretch()
+        
+        k2=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Port"))
+        l.setStyleSheet("font-size: 18px;")
+        k2.addWidget(l)
+
+        self.port=QComboBox()
+        self.port.setStyleSheet("font-size: 18px;")
+        self.port.addItem("d")
+        
+        k2.addWidget(self.port)
+        
+        k8=QHBoxLayout()
+        k8.addLayout(k1)
+        #k8.addStretch()
+        k8.addLayout(k2)
+        
+        self.layout.addLayout(k8)        
+        
+        
+        k4=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Inp. type"))
+        l.setStyleSheet("font-size: 18px;")
+        k4.addWidget(l)
+        
+        self.iType=QComboBox()
+        self.iType.setStyleSheet("font-size: 18px;")
+            
+        self.iType.activated.connect(self.ifChanged)
+
+        k4.addWidget(self.iType)
+                
+        k5=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Operator"))
+        l.setStyleSheet("font-size: 18px;")
+        k5.addWidget(l)
+        
+        self.operator=QComboBox()
+        self.operator.setStyleSheet("font-size: 18px;")
+        self.operator.addItems(["  <", " ==", " !=", "  >"])
+
+        x=self.cmdline.split()[4]
+        
+        if x=="<":    self.operator.setCurrentIndex(0)
+        elif x=="==": self.operator.setCurrentIndex(1)
+        elif x=="!=": self.operator.setCurrentIndex(2)
+        elif x==">":  self.operator.setCurrentIndex(3)
+        
+        k5.addWidget(self.operator)
+
+        k9=QHBoxLayout()
+        k9.addLayout(k4)
+        k9.addStretch()
+        k9.addLayout(k5)
+        
+        self.layout.addLayout(k9)
+        
+        
+        k3=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Value"))
+        l.setStyleSheet("font-size: 18px;")
+        k3.addWidget(l)     
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 18px;")
+            
+        self.value.setText(self.cmdline.split()[5])
+        self.value.mousePressEvent=self.getValue
+        k3.addWidget(self.value)
+        
+        self.layout.addLayout(k3)
+        self.layout.addStretch()
+        
+        
+        kb=QVBoxLayout()
+        
+        l=QLabel(QCoreApplication.translate("ecl","Timeout"))
+        l.setStyleSheet("font-size: 18px;")
+        kb.addWidget(l)
+        
+        self.timeout=QLineEdit()
+        self.timeout.setReadOnly(True)
+        self.timeout.setStyleSheet("font-size: 18px;")
+        self.timeout.setText(self.cmdline.split()[6])
+        self.timeout.mousePressEvent=self.getTValue
+        
+        kb.addWidget(self.timeout)
+        
+        self.layout.addLayout(kb)
+        self.layout.addStretch()                
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        self.ifChanged()
+        
+        p=self.cmdline.split()[2]
+        if p=="X":self.port.setCurrentIndex(0)
+        elif p=="Y":self.port.setCurrentIndex(1)
+        else: self.port.setCurrentIndex(int(self.cmdline.split()[2])-1)
+        
+        if self.cmdline.split()[3][:1]=="S": self.iType.setCurrentIndex(0)
+        elif self.cmdline.split()[3][:1]=="V": self.iType.setCurrentIndex(1)
+        elif self.cmdline.split()[3][:1]=="R": self.iType.setCurrentIndex(2)
+        elif self.cmdline.split()[3][:1]=="D": self.iType.setCurrentIndex(3)
+        elif self.cmdline.split()[3][:1]=="C": self.iType.setCurrentIndex(4)
+        
+        self.ifChanged()
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="WaitIn " +self.interface.currentText()+ " " + self.port.currentText()[2:] + " "
+        if self.iType.currentIndex()==0:   d="S"
+        elif self.iType.currentIndex()==1: d="V"
+        elif self.iType.currentIndex()==2: d="R"
+        elif self.iType.currentIndex()==3: d="D"               
+        elif self.iType.currentIndex()==4: d="C"
+        
+        self.cmdline=self.cmdline + d + " " + self.operator.itemText(self.operator.currentIndex()).strip()
+        self.cmdline=self.cmdline + " " + self.value.text()
+        self.cmdline=self.cmdline + " " + self.timeout.text()
+        
+        self.close()
+    
+    def ifChanged(self):
+        m=max(self.iType.currentIndex(),0)
+        self.iType.clear()
+        if self.interface.currentIndex()==0:
+            self.iType.addItems([QCoreApplication.translate("ecl","switch"),
+                                QCoreApplication.translate("ecl","voltage"),
+                                QCoreApplication.translate("ecl","resistance"),
+                                QCoreApplication.translate("ecl","distance")])
+        else:
+            self.iType.addItems([QCoreApplication.translate("ecl","switch"),
+                                QCoreApplication.translate("ecl","voltage"),
+                                QCoreApplication.translate("ecl","resistance"),
+                                QCoreApplication.translate("ecl","distance")])#,
+                                #QCoreApplication.translate("ecl","counter")])
+        self.iType.setCurrentIndex(m)
+
+        m=self.port.currentIndex()
+        self.port.clear()
+        if self.interface.currentText()=="RIF":
+            if self.iType.currentIndex()==0:
+                self.port.addItems(["I 1","I 2","I 3","I 4","I 5","I 6","I 7","I 8"])
+            elif self.iType.currentIndex()==1:
+                self.port.addItems(["A 1","A 2"])
+            elif self.iType.currentIndex()==2:
+                self.port.addItems(["A X","A Y"])
+            elif self.iType.currentIndex()==3:
+                self.port.addItems(["D 1","D 2"])
+        elif self.interface.currentText()=="TXT":
+            if self.iType.currentIndex()>=0 and self.iType.currentIndex()<=3:
+                self.port.addItems(["I 1","I 2","I 3","I 4","I 5","I 6","I 7","I 8"])
+            elif self.iType.currentIndex()==4:
+                self.port.addItems(["C 1","C 2","C 3","C 4"]) 
+        elif self.interface.currentText()=="FTD":
+            if self.iType.currentIndex()>=0 and self.iType.currentIndex()<=2:
+                self.port.addItems(["I 1","I 2","I 3","I 4","I 5","I 6","I 7","I 8"])
+            elif self.iType.currentIndex()==3:
+                self.port.addItems(["C 1"]) 
+            elif self.iType.currentIndex()==4:
+                self.port.addItems(["C 1","C 2","C 3","C 4"]) 
+        self.port.setCurrentIndex(min(max(0,m),self.port.count()-1))
+        
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Value"),a,self).exec_()
+        if not t.isnumeric(): t=a
+        self.value.setText(t)
+
+    def getTValue(self,m):
+        a=self.timeout.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Timeout"),a,self).exec_()
+        if not t.isnumeric(): t=a
+        t=str(int(t))
+        self.timeout.setText(t)
         
 class FtcGuiApplication(TouchApplication):
     outputClicked=pyqtSignal(int)
