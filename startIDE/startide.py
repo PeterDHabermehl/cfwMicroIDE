@@ -464,6 +464,9 @@ class execThread(QThread):
         elif stack[0]== "Delay":    self.cmdDelay(stack)
         elif stack[0]== "TimerQuery": self.cmdPrint(str(time.time()-self.timestamp))
         elif stack[0]== "TimerClear": self.timestamp=time.time()
+        elif stack[0]== "IfTimer":  self.cmdIfTimer(stack)
+        elif stack[0]== "IfTime":   self.cmdIfTime(stack)
+        elif stack[0]== "IfDate":   self.cmdIfDate(stack)
         elif stack[0]== "Jump":     self.cmdJump(stack)
         elif stack[0]== "LoopTo":   self.cmdLoopTo(stack)
         elif stack[0]== "WaitInDig": self.cmdWaitForInputDig(stack)
@@ -493,9 +496,9 @@ class execThread(QThread):
                 v=str(self.RIF.Digital(int(stack[2])))
             elif stack[3]=="V":
                 if stack[2]=="1":
-                    tx=str(self.RIF.GetA1())
+                    tx=str(self.RIF.GetA1())*10
                 elif stack[2]=="2":
-                    tx=str(self.RIF.GetA2())
+                    tx=str(self.RIF.GetA2())*10
             elif stack[3]=="R":
                 if stack[2]=="X":
                     tx=str(self.RIF.GetAX())
@@ -509,6 +512,7 @@ class execThread(QThread):
             elif stack[3]=="C":
                 tx="Not yet implemented"                
         elif stack[1]== "TXT":
+            self.TXT.updateWait()
             if stack[3]=="S":
                 v=str(self.txt_i[int(stack[2])-1].state())
             elif stack[3]=="V":
@@ -582,7 +586,7 @@ class execThread(QThread):
 
         if d!="s":
             while not ((self.txt_m[m-1].finished() and self.txt_m[o-1].finished()) or self.halt):
-                time.sleep(0.005)
+                self.TXT.updateWait()
         
         if n>0 or d=="s":
             self.txt_m[m-1].stop()     
@@ -597,6 +601,7 @@ class execThread(QThread):
         n=int(stack[6]) # pulses
 
         if e>-1:
+            self.TXT.updateWait()
             if d=="l" and self.txt_i[e-1].state(): return
 
         if d=="r":
@@ -606,6 +611,7 @@ class execThread(QThread):
         self.txt_m[m-1].setSpeed(s)
 
         while not (self.txt_m[m-1].finished() or self.halt):
+            self.TXT.updateWait()
             if e>-1:
                 if d=="l" and self.txt_i[e-1].state(): break
         
@@ -636,8 +642,10 @@ class execThread(QThread):
             self.RIF.SetMotor(m,"s",0)
         elif stack[1]=="TXT": # TXT
             if e>-1:
+                self.TXT.updateWait()
                 if d=="l" and self.txt_i[e-1].state(): return
             
+            self.TXT.updateWait()
             a=self.txt_i[p-1].state()
 
             if d=="r":
@@ -647,8 +655,10 @@ class execThread(QThread):
             c=0
             while c<n and not self.halt:
                 if e>-1:
+                    self.TXT.updateWait()
                     if d=="l" and self.txt_i[e-1].state(): break
                 b=a
+                self.TXT.updateWait()
                 a=self.txt_i[p-1].state()
                 if not a==b: c=c+1
             
@@ -693,9 +703,33 @@ class execThread(QThread):
         if self.halt:
             self.count=len(self.codeList)
             
+
     def wake(self):
         self.sleeping=False
         
+    def cmdIfTimer(self, stack):
+        diff=(time.time()-self.timestamp)*1000
+        
+        if (stack[1]=="<" and diff<float(stack[2])) or (stack[1]==">" and diff>float(stack[2])):
+            n=-1
+            for line in self.jmpTable:
+                if stack[3]==line[0]: n=line[1]-1
+
+            if n==-1:
+                self.msgOut("IfTimer jump tag not found!")
+                self.halt=True
+            else:
+                self.count=n
+                
+    def cmdIfTime(self, stack):
+        zeit=time.strftime("%H %M %S")
+        self.cmdIfDate(stack)
+        print(zeit)
+    
+    def cmdIfDate(self, stack):
+        day=time.strftime("%Y %m %d %w")
+        print(day)
+
     def cmdJump(self,stack):
         n=-1
         for line in self.jmpTable:
@@ -713,7 +747,9 @@ class execThread(QThread):
                 self.LoopStack[n][1]=self.LoopStack[n][1]-1
                 if self.LoopStack[n][1]>0:
                     self.count=self.LoopStack[n][2]
-                else: self.LoopStack.pop(n)
+                else:
+                    if self.LoopStack[n][2]<self.count:
+                        self.LoopStack.pop(n)
                 found=True
                 break
         if not found:
@@ -724,9 +760,13 @@ class execThread(QThread):
                 self.msgOut("LoopTo tag not found!")
                 self.halt=True
             else:
-                self.LoopStack.append([self.count, int(stack[2])-1, tgt])
-                self.count=tgt
-            
+                if int(stack[2])>1:
+                    if tgt>self.count:
+                        self.LoopStack.append([self.count, int(stack[2]), tgt])
+                    else:
+                        self.LoopStack.append([self.count, int(stack[2])-1, tgt])
+                    self.count=tgt
+                    
     def cmdWaitForInputDig(self,stack):
         self.tOut=False
         self.tAct=False
@@ -757,17 +797,21 @@ class execThread(QThread):
                     self.parent.processEvents()
         elif stack[1]=="TXT": # TXT
             if stack[3]=="Raising":
+                self.TXT.updateWait()
                 a=self.txt_i[int(stack[2])-1].state()
                 b=a
                 while not (b<a or self.halt or self.tOut ): 
                     b=a
+                    self.TXT.updateWait()
                     a=self.txt_i[int(stack[2])-1].state()
                     self.parent.processEvents()
             elif stack[3]=="Falling":
+                self.TXT.updateWait()
                 a=self.txt_i[int(stack[2])-1].state()
                 b=a
                 while not (b>a or self.halt or self.tOut ): 
                     b=a
+                    self.TXT.updateWait()
                     a=self.txt_i[int(stack[2])-1].state()
                     self.parent.processEvents()
         elif stack[1]=="FTD": # FTD
@@ -817,9 +861,9 @@ class execThread(QThread):
                     v=float(self.RIF.Digital(int(stack[2])))
                 elif stack[3]=="V":
                     if stack[2]=="1":
-                        v=float(self.RIF.GetA1())
+                        v=float(self.RIF.GetA1())*10
                     elif stack[2]=="2":
-                        v=float(self.RIF.GetA2())
+                        v=float(self.RIF.GetA2())*10
                 elif stack[3]=="R":
                     if stack[2]=="X":
                         v=float(self.RIF.GetAX())
@@ -833,6 +877,7 @@ class execThread(QThread):
                 elif stack[3]=="C":
                     tx="Not yet implemented"                
             elif stack[1]== "TXT":
+                self.TXT.updateWait()
                 if stack[3]=="S":
                     v=float(self.txt_i[int(stack[2])-1].state())
                 elif stack[3]=="V":
@@ -882,6 +927,7 @@ class execThread(QThread):
                 else:
                     self.count=n        
         elif stack[1]=="TXT":
+            self.TXT.updateWait()
             if (stack[3]=="True" and self.txt_i[int(stack[2])-1].state()) or (stack[3]=="False" and not self.txt_i[int(stack[2])-1].state()):
                 n=-1
                 for line in self.jmpTable:
@@ -914,9 +960,9 @@ class execThread(QThread):
                 v=float(self.RIF.Digital(int(stack[2])))
             elif stack[3]=="V":
                 if stack[2]=="1":
-                    v=float(self.RIF.GetA1())
+                    v=float(self.RIF.GetA1())*10
                 elif stack[2]=="2":
-                    v=float(self.RIF.GetA2())
+                    v=float(self.RIF.GetA2())*10
             elif stack[3]=="R":
                 if stack[2]=="X":
                     v=float(self.RIF.GetAX())
@@ -930,6 +976,7 @@ class execThread(QThread):
             elif stack[3]=="C":
                 tx="Not yet implemented"                
         elif stack[1]== "TXT":
+            self.TXT.updateWait()
             if stack[3]=="S":
                 v=float(self.txt_i[int(stack[2])-1].state())
             elif stack[3]=="V":
@@ -1929,7 +1976,10 @@ class editLoopTo(TouchDialog):
         self.tags.setStyleSheet("font-size: 20px;")
         self.tags.addItems(self.taglist)
         try:
-            if self.cmdline.split()[1] in self.taglist: self.tags.setCurrentRow(self.cmdline.split()[1])
+            t=0
+            for tag in self.taglist:
+               if self.taglist[t]==self.cmdline.split()[1]: self.tags.setCurrentRow(t)
+               t=t+1
         except:
             self.tags.setCurrentRow(0)
             
@@ -2563,6 +2613,85 @@ class editWaitForInput(TouchDialog):
         if not t.isnumeric(): t=a
         t=str(int(t))
         self.timeout.setText(t)
+
+class editIfTimer(TouchDialog):
+    def __init__(self, cmdline, taglist, parent):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","IfTimer"), parent)
+        
+        self.cmdline=cmdline
+        self.taglist=taglist
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+        
+        self.layout=QVBoxLayout()
+        
+        l=QLabel(QCoreApplication.translate("ecl", "Operator"))
+        l.setStyleSheet("font-size: 20px;")
+        
+        self.layout.addWidget(l)
+        
+        self.operator=QComboBox()
+        self.operator.setStyleSheet("font-size: 20px;")
+        self.operator.addItems(["  <  ","  >  "])
+
+        if self.cmdline.split()[1]=="<": self.operator.setCurrentIndex(0)
+        if self.cmdline.split()[1]==">": self.operator.setCurrentIndex(1)
+
+        self.layout.addWidget(self.operator)
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl","Value"))
+        l.setStyleSheet("font-size: 20px;")
+        self.layout.addWidget(l)     
+        
+        self.thd=QLineEdit()
+        self.thd.setReadOnly(True)
+        self.thd.setStyleSheet("font-size: 20px;")
+        self.thd.setText(self.cmdline.split()[2])
+        self.thd.mousePressEvent=self.getValue
+        self.layout.addWidget(self.thd)
+        
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl","Target"))
+        l.setStyleSheet("font-size: 20px;")
+        self.layout.addWidget(l)
+        
+        self.tags=QComboBox()
+        self.tags.setStyleSheet("font-size: 20px;")
+        self.tags.addItems(self.taglist)
+
+        try:
+            if self.cmdline.split()[3] in self.taglist:
+                for i in range(self.tags.count()):
+                    if self.cmdline.split()[4]==self.tags.item(i).text(): self.tags.setCurrentIndex(i)
+        except:
+            self.tags.setCurrentIndex(0)
+            
+        self.layout.addWidget(self.tags)
+        self.layout.addStretch()
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="IfTimer " +self.operator.currentText().strip()+ " " + self.thd.text() + " " + self.tags.itemText(self.tags.currentIndex())
+        self.close()
+        
+    def getValue(self,m):
+        a=self.thd.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Timeout"),a,self).exec_()
+        if not t.isnumeric(): t=a
+        t=str(int(t))
+        self.thd.setText(t)
+
         
 class FtcGuiApplication(TouchApplication):
     outputClicked=pyqtSignal(int)
@@ -3314,8 +3443,8 @@ class FtcGuiApplication(TouchApplication):
                     ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Controls"), self.mainwindow)
                     ftb.setButtons([ QCoreApplication.translate("addcodeline","Delay"),
                              QCoreApplication.translate("addcodeline","TimerQuery"),
-                             QCoreApplication.translate("addcodeline","TimerClear")
-                             #QCoreApplication.translate("addcodeline","IfTimer")
+                             QCoreApplication.translate("addcodeline","TimerClear"),
+                             QCoreApplication.translate("addcodeline","IfTimer")
                             ]
                           )
                     ftb.setTextSize(3)
@@ -3427,6 +3556,9 @@ class FtcGuiApplication(TouchApplication):
     def acl_timerclear(self):
         self.acl("TimerClear")
     
+    def acl_iftimer(self):
+        self.acl("IfTimer > 1000 ")
+    
     def acl_call(self):
         self.acl("Call ")
 
@@ -3498,6 +3630,7 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "Jump":       itm=self.ecl_jump(itm)
         elif stack[0] == "LoopTo":     itm=self.ecl_loopTo(itm)
         elif stack[0] == "Delay":      itm=self.ecl_delay(itm)
+        elif stack[0] == "IfTimer":    itm=self.ecl_iftimer(itm)
         elif stack[0] == "Stop":       itm=self.ecl_stop(itm)
         elif stack[0] == "Call":       itm=self.ecl_call(itm)
         elif stack[0] == "CallExt":    itm=self.ecl_callext(itm)
@@ -3635,6 +3768,23 @@ class FtcGuiApplication(TouchApplication):
             pass
         
         return "Delay "+itm[6:]
+    
+    def ecl_iftimer(self, itm):
+        tagteam=[]
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="Tag": tagteam.append(self.proglist.item(i).text()[4:])
+  
+        if len(tagteam)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","IfTimer"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
+        
+        return editIfTimer(itm,tagteam,self.mainwindow).exec_()
         
     def ecl_stop(self, itm):
         return itm
