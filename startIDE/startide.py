@@ -116,6 +116,7 @@ class execThread(QThread):
         self.LoopStack=[]
         self.modTable=[]
         self.modStack=[]
+        self.impmod=[]
         
         cnt=0
         mcnt=0
@@ -150,6 +151,20 @@ class execThread(QThread):
                 mcnt=mcnt+1
             elif "MEnd" in line[:4]:
                 mcnt=mcnt-1
+            elif a[0] == "CallExt" and not (a[1] in self.impmod):
+                try:
+                    with open(moddir+a[1],"r", encoding="utf-8") as f:
+                        module=json.load(f)
+                        f.close()
+                    nmp = len(self.codeList)
+                    for mline in module:
+                        self.codeList.append(mline)
+                    self.impmod.append(a[1])
+                    
+                except:
+                    self.msgOut(QCoreApplication.translate("exec","External Module")+ " "+a[1]+QCoreApplication.translate("exec"," not found.\nProgram terminated\n"))
+                    self.stop()
+                
             #
             # configure i/o of the devices:
             #
@@ -253,7 +268,6 @@ class execThread(QThread):
                                 else:
                                     ftdcounterinputfailure=a[2] 
             cnt=cnt+1
-        
         self.clrOut()
         
         
@@ -436,9 +450,9 @@ class execThread(QThread):
             if "STEPON" in line:     
                 self.singlestep=True
                 self.cmdPrint("STEPON: tap screen!")
-            elif "GETELAPSEDTIME" in line:
+            elif "GETELAPSEDTIME" in stack[1]:
                 self.cmdPrint(str(time.time()-self.timestamp))
-            elif "TIMERCLEAR" in line:
+            elif "TIMERCLEAR" in stack[1]:
                 self.timestamp=time.time()
             elif "STEPOFF" in line:  self.singlestep=False
         elif stack[0]== "Stop":     self.count=len(self.codeList)
@@ -448,6 +462,8 @@ class execThread(QThread):
         elif stack[0]== "MotorE":   self.cmdMotorEncoder(stack)
         elif stack[0]== "MotorES":  self.cmdMotorEncoderSync(stack)
         elif stack[0]== "Delay":    self.cmdDelay(stack)
+        elif stack[0]== "TimerQuery": self.cmdPrint(str(time.time()-self.timestamp))
+        elif stack[0]== "TimerClear": self.timestamp=time.time()
         elif stack[0]== "Jump":     self.cmdJump(stack)
         elif stack[0]== "LoopTo":   self.cmdLoopTo(stack)
         elif stack[0]== "WaitInDig": self.cmdWaitForInputDig(stack)
@@ -460,6 +476,7 @@ class execThread(QThread):
         elif stack[0]== "Message":  self.cmdMessage(line[8:])
         elif stack[0]== "Module":   self.count=len(self.codeList)
         elif stack[0]== "Call":     self.cmdCall(stack)
+        elif stack[0]== "CallExt":  self.cmdCall(stack)
         elif stack[0]== "Return":   self.cmdReturn()
         elif stack[0]== "MEnd":     self.cmdMEnd()
         
@@ -962,7 +979,7 @@ class execThread(QThread):
             if stack[1]==line[0]: n=line[1]
         
         if n==-1:
-            self.msgOut("Call module not found!")
+            self.msgOut("Call module "+stack[1]+" not found!")
             self.halt=True
         else:
             self.modStack.append(self.count)
@@ -3281,7 +3298,7 @@ class FtcGuiApplication(TouchApplication):
                              QCoreApplication.translate("addcodeline","Tag"),
                              QCoreApplication.translate("addcodeline","Jump"),
                              QCoreApplication.translate("addcodeline","LoopTo"),
-                             QCoreApplication.translate("addcodeline","Delay"),
+                             QCoreApplication.translate("addcodeline","Time"),
                              QCoreApplication.translate("addcodeline","Stop")
                             ]
                           )
@@ -3293,12 +3310,29 @@ class FtcGuiApplication(TouchApplication):
                 elif p==QCoreApplication.translate("addcodeline","Tag"):        self.acl_tag()
                 elif p==QCoreApplication.translate("addcodeline","Jump"):       self.acl_jump()
                 elif p==QCoreApplication.translate("addcodeline","LoopTo"):     self.acl_loopTo()
-                elif p==QCoreApplication.translate("addcodeline","Delay"):      self.acl_delay()
+                elif p==QCoreApplication.translate("addcodeline","Time"):
+                    ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Controls"), self.mainwindow)
+                    ftb.setButtons([ QCoreApplication.translate("addcodeline","Delay"),
+                             QCoreApplication.translate("addcodeline","TimerQuery"),
+                             QCoreApplication.translate("addcodeline","TimerClear")
+                             #QCoreApplication.translate("addcodeline","IfTimer")
+                            ]
+                          )
+                    ftb.setTextSize(3)
+                    ftb.setBtnTextSize(3)
+                    (t,p)=ftb.exec_()
+                    if t:
+                        if p==QCoreApplication.translate("addcodeline","Delay"):        self.acl_delay()
+                        elif p==QCoreApplication.translate("addcodeline","TimerQuery"): self.acl_timerquery()
+                        elif p==QCoreApplication.translate("addcodeline","TimerClear"): self.acl_timerclear()
+                        elif p==QCoreApplication.translate("addcodeline","IfTimer"):    self.acl_iftimer()
+                            
                 elif p==QCoreApplication.translate("addcodeline","Stop"):       self.acl_stop()
         
         elif r==QCoreApplication.translate("addcodeline","Modules"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Modules"), self.mainwindow)
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Call"),
+                             QCoreApplication.translate("addcodeline","CallExt"),
                              QCoreApplication.translate("addcodeline","Return"),
                              QCoreApplication.translate("addcodeline","Module"),
                              QCoreApplication.translate("addcodeline","MEnd")
@@ -3309,9 +3343,10 @@ class FtcGuiApplication(TouchApplication):
             (t,p)=ftb.exec_()
             if t:
                 if   p==QCoreApplication.translate("addcodeline","Call"):     self.acl_call()
+                elif p==QCoreApplication.translate("addcodeline","CallExt"):  self.acl_callext()
                 elif p==QCoreApplication.translate("addcodeline","Return"):   self.acl_return()
                 elif p==QCoreApplication.translate("addcodeline","Module"):   self.acl_module()
-                elif p==QCoreApplication.translate("addcodeline","MEnd"):   self.acl_mend()
+                elif p==QCoreApplication.translate("addcodeline","MEnd"):     self.acl_mend()
                             
         elif r==QCoreApplication.translate("addcodeline","Interaction"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Interact"), self.mainwindow)
@@ -3386,8 +3421,17 @@ class FtcGuiApplication(TouchApplication):
     def acl_delay(self):
         self.acl("Delay 1000")
     
+    def acl_timerquery(self):
+        self.acl("TimerQuery")
+        
+    def acl_timerclear(self):
+        self.acl("TimerClear")
+    
     def acl_call(self):
         self.acl("Call ")
+
+    def acl_callext(self):
+        self.acl("CallExt ")
 
     def acl_return(self):
         self.acl("Return")
@@ -3456,6 +3500,7 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "Delay":      itm=self.ecl_delay(itm)
         elif stack[0] == "Stop":       itm=self.ecl_stop(itm)
         elif stack[0] == "Call":       itm=self.ecl_call(itm)
+        elif stack[0] == "CallExt":    itm=self.ecl_callext(itm)
         elif stack[0] == "Module":     itm=self.ecl_module(itm)
         elif stack[0] == "Print":      itm=self.ecl_print(itm)
         elif stack[0] == "Query":      itm=self.ecl_query(itm)
@@ -3617,7 +3662,29 @@ class FtcGuiApplication(TouchApplication):
         (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","Call"),QCoreApplication.translate("ecl","Target"),tagteam,itm,"Okay", self.mainwindow).exec_()
         
         if not s: return "Call "+itm
-        return "Call "+r    
+        return "Call "+r 
+    
+    def ecl_callext(self, itm):
+        itm=itm[8:]
+        tagteam=[]
+        tagteam=os.listdir(moddir)
+        tagteam.sort()
+  
+        if len(tagteam)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","CallExt"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No external Modules found!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return "CallExt "+itm
+        
+        if not itm in tagteam: itm=tagteam[0]
+        (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","Call"),QCoreApplication.translate("ecl","Target"),tagteam,itm,"Okay", self.mainwindow).exec_()
+        
+        if not s: return "CallExt "+itm
+        return "CallExt "+r   
 
     def ecl_print(self, itm):
         return "Print "+TouchAuxKeyboard(QCoreApplication.translate("ecl","Print"),itm[6:],self.mainwindow).exec_()
