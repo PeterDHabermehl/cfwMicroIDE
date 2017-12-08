@@ -27,13 +27,16 @@ def mainpage():
     hth.link(tr.translate("module"),"index.py?action=MList")
     hth.text(tr.translate("code listing."))
     hth.lf(2)
+    hth.text(tr.translate("<b>Download</b> a"))
+    hth.link(tr.translate("logfile"),"index.py?action=LogDown") 
+    hth.text(tr.translate("from your TXT."))
     hth.separator()
     hth.htmlfoot("","/","TXT Home")
 
 def download(obj:str):
     if obj=="P": hth.htmlhead("startIDE", tr.translate("Download a project from your TXT"))
     elif obj=="M": hth.htmlhead("startIDE", tr.translate("Download a module from your TXT"))
-    
+    elif obj=="L": hth.htmlhead("startIDE", tr.translate("Download a log file from your TXT"))
     hth.separator()
     hth.lf()
     
@@ -45,6 +48,10 @@ def download(obj:str):
         hth.text(tr.translate("Please select module:"))
         hth.lf(2)
         downloadfiles("modules/")
+    elif obj=="L":
+        hth.text(tr.translate("Please select log file:"))
+        hth.lf(2)
+        downloadfiles("logfiles/")
     hth.lf(2)
     hth.separator()
     hth.htmlfoot("","javascript:history.back()",tr.translate("Back"))
@@ -155,6 +162,7 @@ if __name__ == "__main__":
         if form["action"].value=="MUp": upload("M")
         if form["action"].value=="PList": codelist("P")
         if form["action"].value=="MList": codelist("M")
+        if form["action"].value=="LogDown": download("L")
     elif "module" in form:
         uploader("M", form["module"])
     elif "project" in form:

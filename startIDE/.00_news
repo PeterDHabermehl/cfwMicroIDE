@@ -1,4 +1,5 @@
 News<hr>
+v0.92.3:<br>Introducing log files<hr>
 v0.92.2:<br>IfTimer added, Call and CallExt now have a counter<hr>
 v0.92 (20171207):<br>CallExt, TimerQuery and TimerClear commands added<hr>
 v0.91 (20171206):<br>IfIn, WaitIn and Query commands added<hr>

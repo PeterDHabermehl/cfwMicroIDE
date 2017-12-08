@@ -1,7 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-import sys, time, os, json
+import sys, time, os, json, shutil
 import threading as thd
 from TouchStyle import *
 from TouchAuxiliary import *
@@ -25,11 +25,14 @@ FTTXTADDRESS="auto"
 hostdir = os.path.dirname(os.path.realpath(__file__)) + "/"
 projdir = hostdir + "projects/"
 moddir  = hostdir + "modules/"
+logdir  = hostdir + "logfiles/"
 
 if not os.path.exists(projdir):
     os.mkdir(projdir)
 if not os.path.exists(moddir):
     os.mkdir(moddir)
+if not os.path.exists(logdir):
+    os.mkdir(logdir)
     
 try:
     with open(hostdir+"manifest","r") as f:
@@ -51,7 +54,7 @@ except:
 try:
     with open(hostdir+".locale","w") as f:
         r=f.write(translator.getActiveLocale())
-        f.close
+        f.close()
 except:
     pass
     
@@ -107,6 +110,7 @@ class execThread(QThread):
         self.trace=False
         self.singlestep=False
         self.nextStep=False
+        self.logging=False
         
         self.requireTXT=False
         self.requireRIF=False
@@ -418,7 +422,12 @@ class execThread(QThread):
         
         if not self.halt: self.msgOut("<End>")
         else: self.msgOut("<Break>")
-
+        
+        try:
+            if self.logging: self.logfile.close()
+        except:
+            pass
+        
         if self.RIF!=None:
             for i in range(1,9):
                 self.RIF.SetOutput(i,0)
@@ -467,7 +476,7 @@ class execThread(QThread):
         elif stack[0]== "MotorE":   self.cmdMotorEncoder(stack)
         elif stack[0]== "MotorES":  self.cmdMotorEncoderSync(stack)
         elif stack[0]== "Delay":    self.cmdDelay(stack)
-        elif stack[0]== "TimerQuery": self.cmdPrint(str(time.time()-self.timestamp))
+        elif stack[0]== "TimerQuery": self.cmdPrint(str(int((time.time()-self.timestamp)*1000)))
         elif stack[0]== "TimerClear": self.timestamp=time.time()
         elif stack[0]== "IfTimer":  self.cmdIfTimer(stack)
         elif stack[0]== "IfTime":   self.cmdIfTime(stack)
@@ -482,12 +491,44 @@ class execThread(QThread):
         elif stack[0]== "Query":    self.cmdQuery(stack)
         elif stack[0]== "Clear":    self.clrOut()
         elif stack[0]== "Message":  self.cmdMessage(line[8:])
+        elif stack[0]== "Log":      self.cmdLog(stack)
         elif stack[0]== "Module":   self.count=len(self.codeList)
         elif stack[0]== "Call":     self.cmdCall(stack)
         elif stack[0]== "CallExt":  self.cmdCall(stack)
         elif stack[0]== "Return":   self.cmdReturn()
         elif stack[0]== "MEnd":     self.cmdMEnd()
-        
+    
+    def cmdLog(self, stack):
+        if stack[1]=="1" and not self.logging:
+            self.logging=True
+            try:
+                self.logfile.close()
+            except:
+                pass
+            
+            try:
+                lfn=logdir+"log"+time.strftime("%Y%m%d-%H%M%S")
+                while os.path.exists(lfn):
+                    lfn=lfn+"-"
+                self.logfile=open(lfn,"w",encoding="utf-8")
+            except:
+                self.cmdPrint("Could not write logfile.")
+                self.logging=False
+                
+        elif stack[1]=="0":
+            self.logging=False
+            try:
+                self.logfile.close()
+            except:
+                pass
+        elif stack[1][0]=="C":
+            try:
+                shutil.rmtree(logdir, ignore_errors=True)
+                if not os.path.exists(logdir):
+                    os.mkdir(logdir)
+            except:
+                self.cmdPrint("Failed to remove\nall logfiles.")
+                
     def cmdQuery(self, stack):
         
         tx = v = ""
@@ -1070,6 +1111,8 @@ class execThread(QThread):
     
     def cmdPrint(self, message):
         self.msgOut(message)
+        if self.logging:
+            self.logfile.write(message+"\n")
         time.sleep(0.005)
     
     def cmdMessage(self, rawline):
@@ -3573,8 +3616,9 @@ class FtcGuiApplication(TouchApplication):
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Print"),
                              QCoreApplication.translate("addcodeline","Query"),
                              QCoreApplication.translate("addcodeline","Clear"),
-                             QCoreApplication.translate("addcodeline","Message")
+                             QCoreApplication.translate("addcodeline","Message"),
                              #QCoreApplication.translate("addcodeline","Request")
+                             QCoreApplication.translate("addcodeline","Logfile")
                             ]
                           )
             ftb.setTextSize(3)
@@ -3585,6 +3629,7 @@ class FtcGuiApplication(TouchApplication):
                 elif p==QCoreApplication.translate("addcodeline","Query"):      self.acl_query()
                 elif p==QCoreApplication.translate("addcodeline","Clear"):      self.acl_clear()
                 elif p==QCoreApplication.translate("addcodeline","Message"):    self.acl_message()
+                elif p==QCoreApplication.translate("addcodeline","Logfile"):    self.acl_logfile()
                 
     def acl(self,code):
         self.proglist.insertItem(self.proglist.currentRow()+1,code)
@@ -3673,6 +3718,21 @@ class FtcGuiApplication(TouchApplication):
 
     def acl_message(self):
         self.acl("Message  'Okay")
+    
+    def acl_logfile(self):
+        ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Logfile"), self.mainwindow)
+        ftb.setButtons([ QCoreApplication.translate("addcodeline","Log On"),
+                            QCoreApplication.translate("addcodeline","Log Off"),
+                            QCoreApplication.translate("addcodeline","Log Clear")
+                        ]
+                        )
+        ftb.setTextSize(3)
+        ftb.setBtnTextSize(3)
+        (t,p)=ftb.exec_()
+        if t:
+            if   p == QCoreApplication.translate("addcodeline","Log On"):   self.acl("Log 1")
+            elif p == QCoreApplication.translate("addcodeline","Log Off"):  self.acl("Log 0")
+            elif p == QCoreApplication.translate("addcodeline","Log Clear"):self.acl("Log Clear")
     
     def acl_clear(self):
         self.acl("Clear")
