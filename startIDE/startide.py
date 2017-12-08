@@ -136,6 +136,7 @@ class execThread(QThread):
         txtanaloginputfailure=""
         ftdanaloginputfailure=""
         ftdcounterinputfailure=""
+        extmodfailure=False
         
         for line in self.codeList:
             a=line.split()
@@ -164,9 +165,8 @@ class execThread(QThread):
                     self.impmod.append(a[1])
                     
                 except:
-                    self.msgOut(QCoreApplication.translate("exec","External Module")+ " "+a[1]+QCoreApplication.translate("exec"," not found.\nProgram terminated\n"))
-                    self.stop()
-                
+                    extmodfailure=True
+                    emf=a[1]
             #
             # configure i/o of the devices:
             #
@@ -282,6 +282,9 @@ class execThread(QThread):
             self.stop()
         elif self.requireFTD and self.FTD==None:
             self.msgOut(QCoreApplication.translate("exec","ftduino not found!\nProgram terminated\n"))
+            self.stop()
+        elif extmodfailure:    
+            self.msgOut(QCoreApplication.translate("exec","External Module")+ " \n'"+emf+"' "+QCoreApplication.translate("exec","not found.\nProgram terminated\n"))
             self.stop()
         elif txtanaloginputfailure!="":
             self.msgOut(QCoreApplication.translate("exec","TXT analog I")+txtanaloginputfailure+QCoreApplication.translate("exec","\ntypes inconsistent!\nProgram terminated\n"))
