@@ -1,1 +1,0 @@
-["# new", "Print Bei Aufleuchten der", "Print Lampe Taste druecken!", "Delay 1000", "Delay 5000 R", "Motor FTD 2 l 255", "# TIMERCLEAR", "WaitInDig FTD 2 Raising 0", "# GETELAPSEDTIME"]

@@ -116,6 +116,8 @@ class execThread(QThread):
         self.LoopStack=[]
         self.modTable=[]
         self.modStack=[]
+        self.modLStack=[]
+        self.modMStack=[]
         self.impmod=[]
         
         cnt=0
@@ -1030,18 +1032,35 @@ class execThread(QThread):
             self.halt=True
         else:
             self.modStack.append(self.count)
+            self.modMStack.append(n)
+            if len(stack)>2:
+                self.modLStack.append(int(stack[2])-1)
+            else:
+                self.modLStack.append(0)
             self.count=n
-
+        
     def cmdReturn(self):
         try:
-            self.count=self.modStack.pop()#[1]
+            if self.modLStack[len(self.modLStack)-1]==0:
+                self.modLStack.pop()
+                self.modMStack.pop()
+                self.count=self.modStack.pop()#[1]
+            else:
+                self.count=self.modMStack[len(self.modLStack)-1]
+                self.modLStack[len(self.modLStack)-1]=self.modLStack[len(self.modLStack)-1]-1
         except:
             self.msgOut("Return without Call!")
             self.halt=True
             
     def cmdMEnd(self):
         try:
-            self.count=self.modStack.pop()#[1]
+            if self.modLStack[len(self.modLStack)-1]==0:
+                self.modLStack.pop()
+                self.modMStack.pop()
+                self.count=self.modStack.pop()#[1]
+            else:
+                self.count=self.modMStack[len(self.modLStack)-1]
+                self.modLStack[len(self.modLStack)-1]=self.modLStack[len(self.modLStack)-1]-1
         except:
             self.msgOut("Unexpected MEnd!")
             self.halt=True
@@ -2016,6 +2035,75 @@ class editLoopTo(TouchDialog):
         t=str(max(min(int(t),99999),0))
         self.value.setText(t)
 
+class editCall(TouchDialog):
+    def __init__(self, cmdline, taglist, parent):
+        TouchDialog.__init__(self, cmdline.split()[0], parent)
+        
+        self.command=cmdline.split()[0]
+        self.cmdline=cmdline
+        self.taglist=taglist
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+        
+        self.layout=QVBoxLayout()
+        
+
+        l=QLabel(QCoreApplication.translate("ecl", "Module"))
+        l.setStyleSheet("font-size: 20px;")
+        self.layout.addWidget(l)
+        
+        self.tags=QListWidget()
+        self.tags.setStyleSheet("font-size: 20px;")
+        self.tags.addItems(self.taglist)
+        self.tags.setCurrentRow(0)
+        try:
+            t=0
+            for tag in self.taglist:
+               if self.taglist[t]==self.cmdline.split()[1]: self.tags.setCurrentRow(t)
+               t=t+1
+        except:
+            pass
+            
+        self.layout.addWidget(self.tags)
+        
+        self.layout.addStretch()
+
+        l=QLabel(QCoreApplication.translate("ecl", "Count"))
+        l.setStyleSheet("font-size: 20px;")
+        self.layout.addWidget(l)
+        
+        if len(self.cmdline.split())<3: self.cmdline=self.cmdline+" 1"
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 20px;")
+        self.value.setText(self.cmdline.split()[2])
+        self.value.mousePressEvent=self.getValue
+        self.layout.addWidget(self.value)
+        
+        self.layout.addStretch()
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline=self.command + " " +self.tags.item(self.tags.currentRow()).text()+ " " + self.value.text()
+        self.close()
+        
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Number"),a,None).exec_()
+        if not t.isnumeric(): t=a
+        t=str(max(min(int(t),99999),0))
+        self.value.setText(t)
+        
 class editQuery(TouchDialog):
     def __init__(self, cmdline, parent=None):
         TouchDialog.__init__(self, QCoreApplication.translate("ecl","Query"), parent)
@@ -3633,7 +3721,7 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "IfTimer":    itm=self.ecl_iftimer(itm)
         elif stack[0] == "Stop":       itm=self.ecl_stop(itm)
         elif stack[0] == "Call":       itm=self.ecl_call(itm)
-        elif stack[0] == "CallExt":    itm=self.ecl_callext(itm)
+        elif stack[0] == "CallExt":    itm=self.ecl_call(itm)
         elif stack[0] == "Module":     itm=self.ecl_module(itm)
         elif stack[0] == "Print":      itm=self.ecl_print(itm)
         elif stack[0] == "Query":      itm=self.ecl_query(itm)
@@ -3793,10 +3881,13 @@ class FtcGuiApplication(TouchApplication):
         return "Module "+clean(TouchAuxKeyboard(QCoreApplication.translate("ecl","Module"),itm[7:],self.mainwindow).exec_(),32)
     
     def ecl_call(self, itm):
-        itm=itm[5:]
         tagteam=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="Module": tagteam.append(self.proglist.item(i).text()[7:])
+        if itm.split()[0]=="CallExt":
+            tagteam=os.listdir(moddir)
+            tagteam.sort()
+        else:    
+            for i in range(0,self.proglist.count()):
+                if self.proglist.item(i).text().split()[0]=="Module": tagteam.append(self.proglist.item(i).text()[7:])
   
         if len(tagteam)==0:
             t=TouchMessageBox(QCoreApplication.translate("ecl","Call"), self.mainwindow)
@@ -3806,35 +3897,14 @@ class FtcGuiApplication(TouchApplication):
             t.setBtnTextSize(2)
             t.setPosButton(QCoreApplication.translate("ecl","Okay"))
             (v1,v2)=t.exec_()
-            return "Call "+itm
+            return itm
         
-        if not itm in tagteam: itm=tagteam[0]
-        (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","Call"),QCoreApplication.translate("ecl","Target"),tagteam,itm,"Okay", self.mainwindow).exec_()
-        
-        if not s: return "Call "+itm
-        return "Call "+r 
-    
-    def ecl_callext(self, itm):
-        itm=itm[8:]
-        tagteam=[]
-        tagteam=os.listdir(moddir)
-        tagteam.sort()
-  
-        if len(tagteam)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","CallExt"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No external Modules found!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return "CallExt "+itm
-        
-        if not itm in tagteam: itm=tagteam[0]
-        (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","Call"),QCoreApplication.translate("ecl","Target"),tagteam,itm,"Okay", self.mainwindow).exec_()
-        
-        if not s: return "CallExt "+itm
-        return "CallExt "+r   
+        try:
+            if not itm.split()[1] in tagteam: itm=itm.split()[0] +" "+ tagteam[0] + " 1"
+        except:
+            itm=itm.split()[0]+" ? 1"
+            
+        return editCall(itm,tagteam,self.mainwindow).exec_()
 
     def ecl_print(self, itm):
         return "Print "+TouchAuxKeyboard(QCoreApplication.translate("ecl","Print"),itm[6:],self.mainwindow).exec_()
