@@ -875,15 +875,10 @@ class execThread(QThread):
                 self.count=n
                 
     def cmdIfTime(self, stack):
-        zeit=time.strftime("%H %M %S")
-        self.cmdIfDate(stack)
-        print(zeit)
-    
-    def cmdIfDate(self, stack):
-        day=time.strftime("%Y %m %d %w").split()
-        for i in range(4):
+        day=time.strftime("%H %M %S").split()
+        
+        for i in range(3):
             day[i]=int(day[i])
-        print(day)
         
         yy=mm=dd=0
         
@@ -893,6 +888,7 @@ class execThread(QThread):
         else: day[1]=0
         if stack[4]!="-": dd=self.getVal(stack[4])
         else: day[2]=0
+        
         if self.halt: return
         
         now=day[0]*10000+day[1]*100+day[2]
@@ -905,11 +901,62 @@ class execThread(QThread):
             elif    (op==">") and (now>then): res=True
             elif    (op=="==") and (now==then): res=True
             elif    (op=="!=") and (now!=then): res=True
+        else:
+            res=True
         
-        if stack[5]!="-":
+        if res:
+            n=-1
+            for line in self.jmpTable:
+                if stack[5]==line[0]: n=line[1]-1
+
+            if n==-1:
+                self.msgOut("IfTime jump tag not found!")
+                self.halt=True
+            else:
+                self.count=n   
+
+    
+    def cmdIfDate(self, stack):
+        day=time.strftime("%Y %m %d %w").split()
+        for i in range(4):
+            day[i]=int(day[i])
         
-        print("res:",res)
-        if res!=res:
+        yy=mm=dd=0
+        
+        if stack[2]!="-": yy=self.getVal(stack[2])
+        else: day[0]=0
+        if stack[3]!="-": mm=self.getVal(stack[3])
+        else: day[1]=0
+        if stack[4]!="-": dd=self.getVal(stack[4])
+        else: day[2]=0
+        if stack[5]!="-": wd=self.getVal(stack[5])
+        else: wd=day[3]=-1
+        
+        if self.halt: return
+        
+        now=day[0]*10000+day[1]*100+day[2]
+        then=yy*10000+mm*100+dd
+        
+        res=False
+        op=stack[1]
+        if now!=0:
+            if      (op=="<") and (now<then): res=True
+            elif    (op==">") and (now>then): res=True
+            elif    (op=="==") and (now==then): res=True
+            elif    (op=="!=") and (now!=then): res=True
+        else:
+            res=True
+            
+        if (wd!=-1) and res:#
+            res=False
+            now=day[3]
+            then=wd
+            if      (op=="<") and (now<wd): res=True
+            elif    (op==">") and (now>then): res=True
+            elif    (op=="==") and (now==then): res=True
+            elif    (op=="!=") and (now!=then): res=True
+        
+        if res:
             n=-1
             for line in self.jmpTable:
                 if stack[6]==line[0]: n=line[1]-1
