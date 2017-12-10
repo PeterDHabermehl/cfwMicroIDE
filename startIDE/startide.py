@@ -443,6 +443,7 @@ class execThread(QThread):
             self.count=0
         self.parent.processEvents()        
         
+        self.interrupt=-1
         self.timestamp=time.time()
         
         while not self.halt and self.count<len(self.codeList):
@@ -524,6 +525,7 @@ class execThread(QThread):
         elif stack[0]== "IfTimer":  self.cmdIfTimer(stack)
         elif stack[0]== "IfTime":   self.cmdIfTime(stack)
         elif stack[0]== "IfDate":   self.cmdIfDate(stack)
+        elif stack[0]== "Interrupt": self.cmdInterrupt(stack)
         elif stack[0]== "Jump":     self.cmdJump(stack)
         elif stack[0]== "LoopTo":   self.cmdLoopTo(stack)
         elif stack[0]== "WaitInDig": self.cmdWaitForInputDig(stack)
@@ -548,7 +550,17 @@ class execThread(QThread):
         else:
             self.cmdPrint("DontKnowWhatToDo\nin line:\n"+line)
             self.halt=True
-            
+        
+        if time.time()>self.interrupt and self.interrupt>0:
+            self.interruptExec()
+    
+    def interruptExec(self):
+        self.cmdCall(self.interruptCommand.split())
+        if self.interruptTime==0:
+            self.interrupt=-1
+            return
+        else:
+            self.interrupt=time.time()+self.interruptTime
             
     def getVal(self,var):
         for i in self.memory:
@@ -561,17 +573,30 @@ class execThread(QThread):
         self.halt=True
         self.cmdPrint("Variable '"+var+"'\nreferenced without\nInit!\nProgram terminated")
         return 0
-
+    
+    def cmdInterrupt(self,stack):
+        if stack[1]=="Off":
+            self.interrupt=-1
+            self.interruptTime=0
+        elif stack[1]=="After":
+            self.interruptTime=0
+            self.interrupt=time.time()+float(stack[2])/1000
+            self.interruptCommand="Call "+stack[3]+" 1"
+        elif stack[1]=="Every":
+            self.interruptTime=float(stack[2])/1000
+            self.interrupt=time.time()+self.interruptTime
+            self.interruptCommand="Call "+stack[3]+" 1"
+            
     def cmdInit(self,a):
         if len(a)<3: a.append("0")
         cc=0
         for i in self.memory:
             if i[0]==a[1]:
-                self.memory[cc][1] = a[2]
+                self.memory[cc][1] = self.getVal(a[2])
                 break
             cc=cc+1
         if cc==len(self.memory):
-            self.memory.append([a[1], a[2]])
+            self.memory.append([a[1], self.getVal(a[2])])
 
     def cmdQueryVar(self, stack):
         v=self.getVal(stack[1])
@@ -2498,8 +2523,7 @@ class editMotorEncoderSync(TouchDialog):
         except:
             t=a
         self.pulses.setText(t)
-      
-        
+              
 class editLoopTo(TouchDialog):
     def __init__(self, cmdline, taglist, vari, parent):
         TouchDialog.__init__(self, QCoreApplication.translate("ecl","LoopTo"), parent)
@@ -3470,6 +3494,261 @@ class editIfTimer(TouchDialog):
             t=a
         self.thd.setText(t)
 
+class editInit(TouchDialog):
+    def __init__(self, cmdline, vari, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","Variable"), parent)
+        
+        self.cmdline=cmdline
+        self.variables=vari
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.timedOut)
+        
+        self.layout=QVBoxLayout()
+        
+        k3=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Variable name"))
+        l.setStyleSheet("font-size: 20px;")
+        k3.addWidget(l)     
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 20px;")
+        self.value.setText(self.cmdline.split()[1])
+        self.value.mousePressEvent=self.valPress
+        self.value.mouseReleaseEvent=self.valRelease
+        k3.addWidget(self.value)
+                
+        self.layout.addLayout(k3)
+    
+        self.layout.addStretch()
+        
+        k13=QHBoxLayout()
+        
+        k11=QLabel("Init value")
+        k11.setStyleSheet("font-size: 20px;")
+        
+        k13.addWidget(k11)
+        k13.addStretch()
+        
+        self.pulses=QLineEdit(self.cmdline.split()[2])
+        self.pulses.setReadOnly(True)
+        self.pulses.setStyleSheet("font-size: 20px;")
+        self.pulses.mousePressEvent=self.plsPress
+        self.pulses.mouseReleaseEvent=self.plsRelease
+        k13.addWidget(self.pulses)
+        
+        self.layout.addLayout(k13)
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="Init "
+        self.cmdline=self.cmdline + self.value.text()
+        self.cmdline=self.cmdline + " " + self.pulses.text()
+        self.close()
+    
+    def ifChanged(self):
+        pass
+    
+    def valPress(self,sender):
+        #self.value.setText(queryVarName(self.variables,self.value.text()))
+        
+        if self.timer.isActive(): self.timer.stop()
+        self.btn=1
+        self.btnTimedOut=False
+        self.timer.start(500)
+    
+    def timedOut(self):
+        self.btnTimedOut=True
+        self.timer.stop()
+        if self.btn==1: self.value.setText(queryVarName(self.variables,self.value.text()))  
+        else:           self.pulses.setText(queryVarName(self.variables,self.pulses.text())) 
+            
+    def valRelease(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            self.getValue(1)
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Name"),a,self).exec_()
+        if t[0] in "0123456789": t="i"+t
+        self.value.setText(t)
+        
+    def plsPress(self,sender):
+        if self.timer.isActive(): self.timer.stop()
+        self.btnTimedOut=False
+        self.btn=2
+        self.timer.start(500)
+     
+    def plsRelease(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            try:
+                int(self.pulses.text())
+            except:
+                self.pulses.setText("0")  
+            self.getPulses(1)
+            
+    def getPulses(self,m):
+        a=self.pulses.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Value"),a,self).exec_()
+        try:
+            if int(t)<0: t=str(0)
+            if int(t)>9999: t=str(9999)
+            t=str(int(t))
+        except:
+            t=a
+        self.pulses.setText(t)
+
+class editIfVar(TouchDialog):
+    def __init__(self, cmdline, taglist, varlist, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","IfVar"), parent)
+        
+        self.cmdline=cmdline
+        self.taglist=taglist
+        self.variables=varlist
+        
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+        
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.timedOut)
+        
+        # Aussenrahmen
+        self.layout=QVBoxLayout()
+        
+        # VBox
+        l=QLabel(QCoreApplication.translate("ecl", "Variable"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        self.layout.addWidget(l)
+        
+        self.interface=QComboBox()
+        self.interface.setStyleSheet("font-size: 18px;")
+        self.interface.addItems(self.variables)
+
+        if self.cmdline.split()[1] in self.variables:
+            self.interface.setCurrentIndex(self.variables.index(self.cmdline.split()[1]))
+        else: self.interface.setCurrentIndex(0)
+        
+        self.layout.addWidget(self.interface)
+        
+        self.layout.addStretch()
+                
+        l=QLabel(QCoreApplication.translate("ecl","Operator"))
+        l.setStyleSheet("font-size: 18px;")
+        self.layout.addWidget(l)
+        
+        self.operator=QComboBox()
+        self.operator.setStyleSheet("font-size: 18px;")
+        self.operator.addItems(["  <", " ==", " !=", "  >"])
+
+        x=self.cmdline.split()[2]
+        
+        if x=="<":    self.operator.setCurrentIndex(0)
+        elif x=="==": self.operator.setCurrentIndex(1)
+        elif x=="!=": self.operator.setCurrentIndex(2)
+        elif x==">":  self.operator.setCurrentIndex(3)
+        
+        self.layout.addWidget(self.operator)
+
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl","Value"))
+        l.setStyleSheet("font-size: 18px;")
+        self.layout.addWidget(l)     
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 18px;")
+            
+        self.value.setText(self.cmdline.split()[3])
+        self.value.mousePressEvent=self.valPress
+        self.value.mouseReleaseEvent=self.valRelease
+        self.layout.addWidget(self.value)
+        
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl","Target"))
+        l.setStyleSheet("font-size: 18px;")
+        self.layout.addWidget(l)
+        
+        self.tags=QComboBox()
+        self.tags.setStyleSheet("font-size: 18px;")
+        self.tags.addItems(self.taglist)
+        self.tags.setCurrentIndex(0)
+        if len(self.cmdline.split())>4:
+            cc=0
+            for i in self.taglist:
+                if self.cmdline.split()[4]==i: self.tags.setCurrentIndex(cc)
+                cc=cc+1
+        
+        self.layout.addWidget(self.tags)
+        
+        self.layout.addStretch()                
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def valPress(self,sender):
+        if self.timer.isActive(): self.timer.stop()
+        self.btnTimedOut=False
+        self.timer.start(500)
+    
+    def timedOut(self):
+        self.btnTimedOut=True
+        self.timer.stop()
+        self.value.setText(queryVarName(self.variables,self.value.text()))  
+    
+    def valRelease(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            try:
+                int(self.value.text())
+            except:
+                self.value.setText("0")  
+            self.getValue(1)
+        
+    def on_confirm(self):
+        self.cmdline="IfVar " +self.interface.currentText() + " " + self.operator.itemText(self.operator.currentIndex()).strip()
+
+        self.cmdline=self.cmdline + " " + self.value.text()
+        self.cmdline=self.cmdline + " " + self.tags.itemText(self.tags.currentIndex())
+        
+        self.close()
+    
+    def ifChanged(self):
+        pass        
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Value"),a,self).exec_()
+        try:
+            int(t)
+        except:
+            t=a
+        self.value.setText(str(int(t))) 
+
 #
 # main GUI application
 #
@@ -4147,6 +4426,7 @@ class FtcGuiApplication(TouchApplication):
         fta=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","New cmd:"), self.mainwindow)
         fta.setButtons([ QCoreApplication.translate("addcodeline","Inputs"),
                          QCoreApplication.translate("addcodeline","Outputs"),
+                         QCoreApplication.translate("addcodeline","Variables"),
                          QCoreApplication.translate("addcodeline","Controls"),
                          QCoreApplication.translate("addcodeline","Modules"),
                          QCoreApplication.translate("addcodeline","Interaction")
@@ -4201,6 +4481,31 @@ class FtcGuiApplication(TouchApplication):
                 elif p==QCoreApplication.translate("addcodeline","MotorPulsew."):   self.acl_motorPulsewheel()
                 elif p==QCoreApplication.translate("addcodeline","MotorEnc"):   self.acl_motorEncoder()  
                 elif p==QCoreApplication.translate("addcodeline","MotorEncSync"): self.acl_motorEncoderSync()
+
+        elif r==QCoreApplication.translate("addcodeline","Variables"):
+            ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Variables"), self.mainwindow)
+            ftb.setButtons([ QCoreApplication.translate("addcodeline","Init"),
+                             #QCoreApplication.translate("addcodeline","SetFrom"),
+                             #QCoreApplication.translate("addcodeline","Save"),
+                             QCoreApplication.translate("addcodeline","QueryVar"),
+                             QCoreApplication.translate("addcodeline","IfVar"),
+                             QCoreApplication.translate("addcodeline","Calc")
+                            ]
+                          )
+            ftb.setTextSize(3)
+            try:
+                ftb.setColumnSplit(3)
+            except:
+                pass
+            ftb.setBtnTextSize(3)
+            (t,p)=ftb.exec_()
+            if t:
+                if   p==QCoreApplication.translate("addcodeline","Init"):       self.acl_init()
+                elif p==QCoreApplication.translate("addcodeline","SetFrom"):    self.acl_setFrom()
+                elif p==QCoreApplication.translate("addcodeline","Save"):       self.acl_save()
+                elif p==QCoreApplication.translate("addcodeline","QueryVar"):   self.acl_queryVar()  
+                elif p==QCoreApplication.translate("addcodeline","IfVar"):      self.acl_ifVar()                
+                elif p==QCoreApplication.translate("addcodeline","Calc"):       self.acl_calc()
                 
         elif r==QCoreApplication.translate("addcodeline","Controls"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Controls"), self.mainwindow)
@@ -4315,6 +4620,18 @@ class FtcGuiApplication(TouchApplication):
     def acl_motorEncoderSync(self):
         self.acl("MotorES " + "TXT"+ " 1 1 l 512 72")
     
+    def acl_init(self):
+        self.acl("Init integer 0")
+    
+    def acl_queryVar(self):
+        self.acl("QueryVar x")
+    
+    def acl_ifVar(self):
+        self.acl("IfVar x == 0 y")
+    
+    def acl_calc(self):
+        self.acl("Calc x x + 1")
+    
     def acl_stop(self):
         self.acl("Stop")
     
@@ -4419,7 +4736,7 @@ class FtcGuiApplication(TouchApplication):
         vari=[]
         for i in range(0,self.proglist.count()):
             s=self.proglist.item(i).text().split()
-            if s[0]=="Init": vari.append(s[1])
+            if s[0]=="Init" and not (s[1] in vari): vari.append(s[1])
         
         if   stack[0] == "Output":     itm=self.ecl_output(itm, vari)
         elif stack[0] == "Motor":      itm=self.ecl_motor(itm, vari)
@@ -4430,6 +4747,10 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "IfInDig":    itm=self.ecl_ifInputDig(itm, vari)
         elif stack[0] == "WaitIn":     itm=self.ecl_waitForInput(itm, vari)
         elif stack[0] == "IfIn":       itm=self.ecl_ifInput(itm, vari)
+        elif stack[0] == "Init":       itm=self.ecl_init(itm, vari)
+        elif stack[0] == "QueryVar":   itm=self.ecl_queryVar(itm, vari)
+        elif stack[0] == "IfVar":      itm=self.ecl_ifVar(itm, vari)
+        elif stack[0] == "Calc":       itm=self.ecl_calc(itm, vari)
         elif stack[0] == "#":          itm=self.ecl_comment(itm)
         elif stack[0] == "Tag":        itm=self.ecl_tag(itm)
         elif stack[0] == "Jump":       itm=self.ecl_jump(itm)
@@ -4510,6 +4831,67 @@ class FtcGuiApplication(TouchApplication):
         
         return editIfInput(itm,tagteam, varlist, self.mainwindow).exec_()
     
+    def ecl_init(self, itm, varlist):
+        return editInit(itm, varlist).exec_()
+    
+    def ecl_queryVar(self, itm, varlist):
+        if len(varlist)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","QueryVar"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
+        r=varlist[0]
+        if itm.split()[1] in varlist:
+            r=itm.split()[1]
+        (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","QueryVar"),QCoreApplication.translate("ecl","Variable"),varlist,r,"Okay", self.mainwindow).exec_()
+    
+        if s: return "QueryVar "+r
+        return itm
+    
+    def ecl_ifVar(self, itm, varlist):
+        tagteam=[]
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="Tag": tagteam.append(self.proglist.item(i).text()[4:])
+  
+        if len(tagteam)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","IfVar"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
+
+        if len(varlist)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","IfVar"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
+        
+        return editIfVar(itm,tagteam, varlist, self.mainwindow).exec_()
+
+    def ecl_calc(self, itm, varlist):
+        if len(varlist)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","Calc"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
+        
+        return editCalc(itm, varlist, self.mainwindow).exec_()
+        
     def ecl_comment(self, itm):
         return "# "+TouchAuxKeyboard(QCoreApplication.translate("ecl","Comment"),itm[2:],self.mainwindow).exec_()
     
