@@ -3494,6 +3494,101 @@ class editIfTimer(TouchDialog):
             t=a
         self.thd.setText(t)
 
+class editInterrupt(TouchDialog):
+    def __init__(self, cmdline, modlist, vari, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","Calc"), parent)
+        
+        self.cmdline=cmdline
+        self.variables=vari
+        self.modlist=modlist
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+        
+        self.layout=QVBoxLayout()
+        
+        l=QLabel(QCoreApplication.translate("ecl", "Interrupt"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        self.layout.addWidget(l)
+        
+        self.interrupt=QComboBox()
+        self.interrupt.setStyleSheet("font-size: 18px;")
+            
+        oplist=["After","Every","Off"]
+        self.interrupt.addItems(oplist)
+        
+        if self.cmdline.split()[1] in oplist:
+            self.interrupt.setCurrentIndex(oplist.index(self.cmdline.split()[1]))
+        else:
+            self.interrupt.setCurrentIndex(0)
+        
+        self.layout.addWidget(self.interrupt)
+        
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl", "Time"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        self.layout.addWidget(l)
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 18px;")
+            
+        try:
+            self.value.setText(self.cmdline.split()[2])
+        except:
+            self.value.setText("500")
+            
+        self.value.mousePressEvent=self.getValue
+        self.layout.addWidget(self.value)        
+        
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl", "Target module"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        self.layout.addWidget(l)
+        
+        self.target=QComboBox()
+        self.target.setStyleSheet("font-size: 18px;")
+        self.target.addItems(self.modlist)
+
+        try:
+            self.target.setCurrentIndex(self.modlist.index(self.cmdline.split()[3]))
+        except:
+            self.target.setCurrentIndex(0)
+
+        self.layout.addWidget(self.target)
+        
+        self.layout.addStretch()
+
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="Interrupt " + self.interrupt.itemText(self.interrupt.currentIndex())
+        if not "Off" in self.cmdline:
+            self.cmdline=self.cmdline + " " + self.value.text() + " "
+            self.cmdline=self.cmdline + self.target.itemText(self.target.currentIndex())
+        self.close()
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Time"),a,self).exec_()
+        try:
+            v=str(max(min(int(t),99999),0))
+            self.value.setText(v)
+        except:
+            self.value.setText(a)
+
 class editInit(TouchDialog):
     def __init__(self, cmdline, vari, parent=None):
         TouchDialog.__init__(self, QCoreApplication.translate("ecl","Variable"), parent)
@@ -3531,7 +3626,7 @@ class editInit(TouchDialog):
     
         self.layout.addStretch()
         
-        k13=QHBoxLayout()
+        k13=QVBoxLayout()
         
         k11=QLabel("Init value")
         k11.setStyleSheet("font-size: 20px;")
@@ -3547,6 +3642,8 @@ class editInit(TouchDialog):
         k13.addWidget(self.pulses)
         
         self.layout.addLayout(k13)
+        
+        self.layout.addStretch()
         
         self.centralWidget.setLayout(self.layout)
         
@@ -3748,6 +3845,159 @@ class editIfVar(TouchDialog):
         except:
             t=a
         self.value.setText(str(int(t))) 
+
+class editCalc(TouchDialog):
+    def __init__(self, cmdline, vari, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","Calc"), parent)
+        
+        self.cmdline=cmdline
+        self.variables=vari
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.timedOut)
+        
+        self.layout=QVBoxLayout()
+        
+        l=QLabel(QCoreApplication.translate("ecl", "First Operand"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        self.layout.addWidget(l)
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 18px;")
+            
+        self.value.setText(self.cmdline.split()[2])
+        
+        self.value.mousePressEvent=self.valPress
+        self.value.mouseReleaseEvent=self.valRelease
+        self.layout.addWidget(self.value)
+        
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl", "Operator"))
+        l.setStyleSheet("font-size: 18px;")
+        self.layout.addWidget(l)
+        
+        self.operator=QComboBox()
+        self.operator.setStyleSheet("font-size: 18px;")
+        oplist=["+", "-", "*", "/", "mod", "exp", "root", "min", "max", "sin", "cos"]
+        self.operator.addItems(oplist)
+        if self.cmdline.split()[3] in oplist:
+            self.operator.setCurrentIndex(oplist.index(self.cmdline.split()[3]))
+        else:
+            self.operator.setCurrentIndex(0)
+        
+        self.layout.addWidget(self.operator)
+        
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl", "Second Operand"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        self.layout.addWidget(l)
+        
+        self.value2=QLineEdit()
+        self.value2.setReadOnly(True)
+        self.value2.setStyleSheet("font-size: 18px;")
+            
+        self.value2.setText(self.cmdline.split()[4])
+        self.value2.mousePressEvent=self.val2Press
+        self.value2.mouseReleaseEvent=self.val2Release
+        self.layout.addWidget(self.value2)        
+        
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl", "Target variable"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        self.layout.addWidget(l)
+        
+        self.target=QComboBox()
+        self.target.setStyleSheet("font-size: 18px;")
+        self.target.addItems(self.variables)
+
+        if self.cmdline.split()[1] in self.variables:
+            self.target.setCurrentIndex(self.variables.index(self.cmdline.split()[1]))
+        else:
+            self.operator.setCurrentIndex(0)
+
+        self.layout.addWidget(self.target)
+
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="Calc " +self.target.itemText(self.target.currentIndex())+ " " + self.value.text() + " "
+        self.cmdline=self.cmdline + self.operator.itemText(self.operator.currentIndex()) + " " + self.value2.text()
+        
+        self.close()
+    
+    def ifChanged(self):
+        self.valueChanged()
+    
+    def valPress(self,sender):
+        if self.timer.isActive(): self.timer.stop()
+        self.btn=1
+        self.btnTimedOut=False
+        self.timer.start(500)
+    
+    def timedOut(self):
+        self.btnTimedOut=True
+        self.timer.stop()
+        if self.btn==1: self.value.setText(queryVarName(self.variables,self.value.text()))  
+        else:           self.value2.setText(queryVarName(self.variables,self.value2.text())) 
+            
+    def valRelease(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            try:
+                int(self.value.text())
+            except:
+                self.value.setText("0")  
+            self.getValue(1)
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","1st Op."),a,self).exec_()
+        try:
+            self.value.setText(str(int(t)))
+        except:
+            self.value.setText(a)
+        
+    def val2Press(self,sender):
+        if self.timer.isActive(): self.timer.stop()
+        self.btnTimedOut=False
+        self.btn=2
+        self.timer.start(500)
+     
+    def val2Release(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            try:
+                int(self.value2.text())
+            except:
+                self.value2.setText("0")  
+            self.getValue2(1)
+            
+    def getValue2(self,m):
+        a=self.value2.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","2nd Op."),a,self).exec_()
+        try:
+            t=str(int(t))
+        except:
+            t=a
+        self.value2.setText(t)
 
 #
 # main GUI application
@@ -4486,7 +4736,7 @@ class FtcGuiApplication(TouchApplication):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Variables"), self.mainwindow)
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Init"),
                              #QCoreApplication.translate("addcodeline","SetFrom"),
-                             #QCoreApplication.translate("addcodeline","Save"),
+                             #QCoreApplication.translate("addcodeline","Shelf"),
                              QCoreApplication.translate("addcodeline","QueryVar"),
                              QCoreApplication.translate("addcodeline","IfVar"),
                              QCoreApplication.translate("addcodeline","Calc")
@@ -4502,7 +4752,7 @@ class FtcGuiApplication(TouchApplication):
             if t:
                 if   p==QCoreApplication.translate("addcodeline","Init"):       self.acl_init()
                 elif p==QCoreApplication.translate("addcodeline","SetFrom"):    self.acl_setFrom()
-                elif p==QCoreApplication.translate("addcodeline","Save"):       self.acl_save()
+                elif p==QCoreApplication.translate("addcodeline","Shelf"):       self.acl_save()
                 elif p==QCoreApplication.translate("addcodeline","QueryVar"):   self.acl_queryVar()  
                 elif p==QCoreApplication.translate("addcodeline","IfVar"):      self.acl_ifVar()                
                 elif p==QCoreApplication.translate("addcodeline","Calc"):       self.acl_calc()
@@ -4530,7 +4780,8 @@ class FtcGuiApplication(TouchApplication):
                     ftb.setButtons([ QCoreApplication.translate("addcodeline","Delay"),
                              QCoreApplication.translate("addcodeline","TimerQuery"),
                              QCoreApplication.translate("addcodeline","TimerClear"),
-                             QCoreApplication.translate("addcodeline","IfTimer")
+                             QCoreApplication.translate("addcodeline","IfTimer"),
+                             QCoreApplication.translate("addcodeline","Interrupt")
                             ]
                           )
                     ftb.setTextSize(3)
@@ -4541,6 +4792,7 @@ class FtcGuiApplication(TouchApplication):
                         elif p==QCoreApplication.translate("addcodeline","TimerQuery"): self.acl_timerquery()
                         elif p==QCoreApplication.translate("addcodeline","TimerClear"): self.acl_timerclear()
                         elif p==QCoreApplication.translate("addcodeline","IfTimer"):    self.acl_iftimer()
+                        elif p==QCoreApplication.translate("addcodeline","Interrupt"):  self.acl_interrupt()
                             
                 elif p==QCoreApplication.translate("addcodeline","Stop"):       self.acl_stop()
         
@@ -4630,7 +4882,7 @@ class FtcGuiApplication(TouchApplication):
         self.acl("IfVar x == 0 y")
     
     def acl_calc(self):
-        self.acl("Calc x x + 1")
+        self.acl("Calc x 1 + 1")
     
     def acl_stop(self):
         self.acl("Stop")
@@ -4659,6 +4911,9 @@ class FtcGuiApplication(TouchApplication):
     def acl_iftimer(self):
         self.acl("IfTimer > 1000 ")
     
+    def acl_interrupt(self):
+        self.acl("Interrupt After 500 ?")
+        
     def acl_call(self):
         self.acl("Call ")
 
@@ -4757,6 +5012,7 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "LoopTo":     itm=self.ecl_loopTo(itm, vari)
         elif stack[0] == "Delay":      itm=self.ecl_delay(itm, vari)
         elif stack[0] == "IfTimer":    itm=self.ecl_iftimer(itm, vari)
+        elif stack[0] == "Interrupt":  itm=self.ecl_interrupt(itm, vari)
         elif stack[0] == "Stop":       itm=self.ecl_stop(itm)
         elif stack[0] == "Call":       itm=self.ecl_call(itm, vari)
         elif stack[0] == "CallExt":    itm=self.ecl_call(itm, vari)
@@ -4975,6 +5231,24 @@ class FtcGuiApplication(TouchApplication):
             return itm
         
         return editIfTimer(itm,tagteam,vari,self.mainwindow).exec_()
+    
+    def ecl_interrupt(self, itm, vari):
+        tagteam=[]
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="Module":
+                tagteam.append(self.proglist.item(i).text().split()[1])
+  
+        if len(tagteam)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","Interrupt"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Modules defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
+        
+        return editInterrupt(itm,tagteam,vari,self.mainwindow).exec_()
         
     def ecl_stop(self, itm):
         return itm

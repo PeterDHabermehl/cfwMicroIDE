@@ -1,0 +1,1 @@
+["# new", "Interrupt Every 1000 INTER", "Init winkel 0", "Init power 0", "Tag OBEN", "Calc power 512 sin winkel", "Calc winkel winkel + 1", "Delay 10", "QueryVar power", "IfVar power < 0 links", "Motor TXT 1 r power", "Jump WEITER", "Tag links", "Calc power power * -1", "Motor TXT 1 l power", "Tag WEITER", "LoopTo OBEN 360", "Module INTER", "Print Hallo", "TimerQuery", "MEnd"]
