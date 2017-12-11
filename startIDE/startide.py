@@ -3646,7 +3646,8 @@ class editInit(TouchDialog):
         
         self.cmdline=cmdline
         self.variables=vari
-    
+        self.parent=parent
+        
     def exec_(self):
     
         self.confirm = self.titlebar.addConfirm()
@@ -3731,7 +3732,7 @@ class editInit(TouchDialog):
     
     def getValue(self,m):
         a=self.value.text()
-        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Name"),a,self).exec_()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Name"),a,self.parent).exec_()
         if t[0] in "0123456789": t="i"+t
         self.value.setText(t)
         
@@ -3752,7 +3753,7 @@ class editInit(TouchDialog):
             
     def getPulses(self,m):
         a=self.pulses.text()
-        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Value"),a,self).exec_()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Value"),a,self.parent).exec_()
         try:
             if int(t)<0: t=str(0)
             if int(t)>9999: t=str(9999)
@@ -3767,6 +3768,8 @@ class editFromIn(TouchDialog):
         
         self.cmdline=cmdline
         self.varlist=varlist
+        self.parent=parent
+        
     def exec_(self):
     
         self.confirm = self.titlebar.addConfirm()
@@ -5309,7 +5312,7 @@ class FtcGuiApplication(TouchApplication):
         return editIfInput(itm,tagteam, varlist, self.mainwindow).exec_()
     
     def ecl_init(self, itm, varlist):
-        return editInit(itm, varlist).exec_()
+        return editInit(itm, varlist, self.mainwindow).exec_()
     
     def ecl_fromIn(self, itm, varlist):
         if len(varlist)==0:
@@ -5322,7 +5325,7 @@ class FtcGuiApplication(TouchApplication):
             (v1,v2)=t.exec_()
             return itm
         
-        return editFromIn(itm, varlist).exec_()
+        return editFromIn(itm, varlist, self.mainwindow).exec_()
         
     def ecl_queryVar(self, itm, varlist):
         if len(varlist)==0:
