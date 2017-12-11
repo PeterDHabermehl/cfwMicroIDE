@@ -3829,7 +3829,7 @@ class editFromIn(TouchDialog):
         k4.addWidget(self.iType)
                 
         k3=QVBoxLayout()
-        l=QLabel(QCoreApplication.translate("ecl","Text"))
+        l=QLabel(QCoreApplication.translate("ecl","Variable"))
         l.setStyleSheet("font-size: 20px;")
         k3.addWidget(l)     
         
@@ -3928,7 +3928,6 @@ class editFromIn(TouchDialog):
         a=self.value.text()
         t=queryVarName(self.varlist, a)
         self.value.setText(t)
-
 
 class editIfVar(TouchDialog):
     def __init__(self, cmdline, taglist, varlist, parent=None):
