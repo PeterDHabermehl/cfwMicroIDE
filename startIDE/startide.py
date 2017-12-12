@@ -18,6 +18,8 @@ try:
 except:
     FTDUINO_DIRECT=False
     
+# do not check for missing interfaces
+IGNOREMISSING=False
 
 #FTTXTADDRESS="192.168.178.24"
 FTTXTADDRESS="auto"
@@ -318,13 +320,13 @@ class execThread(QThread):
         
         if self.requireTXT and self.TXT==None:
             self.msgOut(QCoreApplication.translate("exec","TXT not found!\nProgram terminated\n"))
-            self.stop()
+            if not IGNOREMISSING: self.stop()
         elif self.requireRIF and self.RIF==None:
             self.msgOut(QCoreApplication.translate("exec","RoboIF not found!\nProgram terminated\n"))
-            self.stop()
+            if not IGNOREMISSING: self.stop()
         elif self.requireFTD and self.FTD==None:
             self.msgOut(QCoreApplication.translate("exec","ftduino not found!\nProgram terminated\n"))
-            self.stop()
+            if not IGNOREMISSING: self.stop()
         elif extmodfailure:    
             self.msgOut(QCoreApplication.translate("exec","External Module")+ " \n'"+emf+"' "+QCoreApplication.translate("exec","not found.\nProgram terminated\n"))
             self.stop()
@@ -1389,7 +1391,7 @@ class execThread(QThread):
             self.modStack.append(self.count)
             self.modMStack.append(n)
             if len(stack)>2:
-                self.modLStack.append(getVal(stack[2])-1)
+                self.modLStack.append(self.getVal(stack[2])-1)
             else:
                 self.modLStack.append(0)
             self.count=n
