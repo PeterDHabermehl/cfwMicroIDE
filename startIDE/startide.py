@@ -167,13 +167,21 @@ class execThread(QThread):
         cnt=0
         mcnt=0
         
-        rif_m = txt_m = ftd_m = [False, False, False, False]
-        rif_o = txt_o = ftd_o = [False, False, False, False, False, False, False, False]
-        rif_i = txt_i = ftd_i = [False, False, False, False, False, False, False, False]
+        rif_m = [False, False, False, False]
+        txt_m = [False, False, False, False]
+        ftd_m = [False, False, False, False]
+        rif_o = [False, False, False, False, False, False, False, False]
+        txt_o = [False, False, False, False, False, False, False, False]
+        ftd_o = [False, False, False, False, False, False, False, False]
+        rif_i = [False, False, False, False, False, False, False, False]
+        txt_i = [False, False, False, False, False, False, False, False]
+        ftd_i = [False, False, False, False, False, False, False, False]
         
         #input types
-        txt_it = ftd_it = [0,0,0,0,0,0,0,0]  # 1=switch 2=voltage 3=resistance 4=distance
-        txt_c = ftd_c = [0,0,0,0]            # 1=counter 2=distance
+        txt_it = [0,0,0,0,0,0,0,0] 
+        ftd_it = [0,0,0,0,0,0,0,0]  # 1=switch 2=voltage 3=resistance 4=distance
+        txt_c = [0,0,0,0]
+        ftd_c = [0,0,0,0]            # 1=counter 2=distance
         
         # scan code for interfaces, jump and module tags, output and motor channels
         
@@ -740,7 +748,8 @@ class execThread(QThread):
                 self.cmdPrint("Failed to remove\nall logfiles.")
                 
     def cmdQuery(self, stack):
-        tx = v = ""
+        tx = "" 
+        v = ""
         
         for a in range(4,len(stack)):
             tx=tx+(stack[a])+" "
@@ -995,7 +1004,9 @@ class execThread(QThread):
         for i in range(3):
             day[i]=int(day[i])
         
-        yy=mm=dd=0
+        yy=0
+        mm=0
+        dd=0
         
         if stack[2]!="-": yy=self.getVal(stack[2])
         else: day[0]=0
@@ -1036,7 +1047,9 @@ class execThread(QThread):
         for i in range(4):
             day[i]=int(day[i])
         
-        yy=mm=dd=0
+        yy=0
+        mm=0
+        dd=0
         
         if stack[2]!="-": yy=self.getVal(stack[2])
         else: day[0]=0
