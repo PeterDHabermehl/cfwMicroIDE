@@ -1113,7 +1113,7 @@ class execThread(QThread):
                 self.msgOut("LoopTo tag not found!")
                 self.halt=True
             else:
-                if int(stack[2])>1:
+                if v>1:
                     if tgt>self.count:
                         self.LoopStack.append([self.count, v, tgt])
                     else:
@@ -1389,7 +1389,7 @@ class execThread(QThread):
             self.modStack.append(self.count)
             self.modMStack.append(n)
             if len(stack)>2:
-                self.modLStack.append(int(stack[2])-1)
+                self.modLStack.append(getVal(stack[2])-1)
             else:
                 self.modLStack.append(0)
             self.count=n
