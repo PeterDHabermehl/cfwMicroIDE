@@ -126,6 +126,8 @@ class execThread(QThread):
     clearText=pyqtSignal()
     execThreadFinished=pyqtSignal()
     showMessage=pyqtSignal(str)
+    requestKeyboard=pyqtSignal(int)
+    requestDial=pyqtSignal(str, int, int, int)
     
     def __init__(self, codeList, output, starter, RIF,TXT,FTD, parent):
         QThread.__init__(self, parent)
@@ -504,6 +506,9 @@ class execThread(QThread):
         
     def setMsg(self, num):
         self.msg=num
+    
+    def setIMsg(self,var):
+        self.imesg=var
         
     def parseLine(self,line):
         stack=line.split()
@@ -554,6 +559,8 @@ class execThread(QThread):
         elif stack[0]== "MEnd":     self.cmdMEnd()
         elif stack[0]== "Init":     self.cmdInit(stack)
         elif stack[0]== "FromIn":   self.cmdFromIn(stack)
+        elif stack[0]== "FromKeypad": self.cmdFromKeypad(stack)
+        elif stack[0]== "FromDial": self.cmdFromDial(stack)
         elif stack[0]== "QueryVar": self.cmdQueryVar(stack)
         elif stack[0]== "Calc":     self.cmdCalc(stack)
         elif stack[0]== "IfVar":    self.cmdIfVar(stack)
@@ -609,11 +616,71 @@ class execThread(QThread):
         if cc==len(self.memory):
             self.memory.append([a[1], self.getVal(a[2])])
 
+    def cmdFromKeypad(self, stack):
+        v=self.getVal(stack[1])   # Variable
+        v1=self.getVal(stack[2])  # min-wert
+        v2=self.getVal(stack[3])  # max-wert
+        
+        if self.halt: return
+        
+        self.msg=0
+        self.requestKeyboard.emit(v)
+        while self.msg==0:
+            time.sleep(0.01)
+        
+        try:
+            t=str(max(min(int(self.imesg),v2),v1))
+        except:
+            t=str(v)
+        
+        cc=0
+        for i in self.memory:
+            if i[0]==stack[1]:
+                self.memory[cc][1] = t
+                break
+            cc=cc+1
+        if cc==len(self.memory):        
+            self.halt=True
+            self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated")                 
+
+    def cmdFromDial(self, stack):
+        v=self.getVal(stack[1])   # Variable
+        v1=self.getVal(stack[2])  # min-wert
+        v2=self.getVal(stack[3])  # max-wert
+        v3=""
+        for a in range(4,len(stack)):
+            v3=v3+stack[a]+" "
+        v3=v3.strip()
+        
+        if self.halt: return
+        
+        self.msg=0
+        self.requestDial.emit(v3,v,v1,v2)
+        while self.msg==0:
+            time.sleep(0.01)
+        
+        try:
+            print("im:",self.imesg)
+            t=str(max(min(int(self.imesg),v2),v1))
+        except:
+            t=str(v)
+        
+        cc=0
+        for i in self.memory:
+            if i[0]==stack[1]:
+                self.memory[cc][1] = t
+                break
+            cc=cc+1
+        if cc==len(self.memory):        
+            self.halt=True
+            self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated")  
+
+        
     def cmdQueryVar(self, stack):
         v=self.getVal(stack[1])
         if not self.halt:
             self.cmdPrint(stack[1]+": "+str(v))
-    
+            
     def cmdCalc(self, stack):
         v1=float(self.getVal(stack[2]))
         v2=float(self.getVal(stack[4]))
@@ -1434,6 +1501,7 @@ class execThread(QThread):
         except:
             self.msgOut("Unexpected MEnd!")
             self.halt=True
+    
     
     def cmdPrint(self, message):
         self.msgOut(message)
@@ -4848,6 +4916,8 @@ class FtcGuiApplication(TouchApplication):
                 self.et.clearText.connect(self.clearText)
                 self.et.execThreadFinished.connect(self.execThreadFinished)
                 self.et.showMessage.connect(self.messageBox)
+                self.et.requestKeyboard.connect(self.requestKeyboard)
+                self.et.requestDial.connect(self.requestDial)
                 self.et.start() 
             else:
                 self.et.stop()
@@ -4881,6 +4951,20 @@ class FtcGuiApplication(TouchApplication):
         (v1,v2)=t.exec_()       
         self.et.setMsg(1)
     
+    def requestKeyboard(self, stack):
+        t=TouchAuxKeyboard(QCoreApplication.translate("exec","Input"),str(stack),self.mainwindow).exec_()        
+        self.et.setIMsg(t)
+        self.et.setMsg(1)
+    
+    def requestDial(self, msg, stack, miv, mav):
+        # def __init__(self,title:str,message:str,initvalue:int,minval:int,maxval:int,button:str,parent=None):
+        s,r=TouchAuxRequestInteger(QCoreApplication.translate("exec","Input"),msg,int(stack),miv,mav,"Okay",self.mainwindow).exec_()   
+        
+        self.et.setIMsg(stack)
+        if s: self.et.setIMsg(str(r))
+        
+        self.et.setMsg(1)
+        
     def setMainWindow(self, status):
         #true -> main window enabled 
         
@@ -4970,6 +5054,8 @@ class FtcGuiApplication(TouchApplication):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Variables"), self.mainwindow)
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Init"),
                              QCoreApplication.translate("addcodeline","FromIn"),
+                             QCoreApplication.translate("addcodeline","FromKeypad"),
+                             QCoreApplication.translate("addcodeline","FromDial"),
                              #QCoreApplication.translate("addcodeline","Shelf"),
                              QCoreApplication.translate("addcodeline","QueryVar"),
                              QCoreApplication.translate("addcodeline","IfVar"),
@@ -4986,7 +5072,9 @@ class FtcGuiApplication(TouchApplication):
             if t:
                 if   p==QCoreApplication.translate("addcodeline","Init"):       self.acl_init()
                 elif p==QCoreApplication.translate("addcodeline","FromIn"):     self.acl_fromIn()
-                elif p==QCoreApplication.translate("addcodeline","Shelf"):      self.acl_save()
+                elif p==QCoreApplication.translate("addcodeline","FromKeypad"): self.acl_fromKeypad()
+                elif p==QCoreApplication.translate("addcodeline","FromDial"): self.acl_fromDial()
+                elif p==QCoreApplication.translate("addcodeline","Shelf"):      self.acl_shelf()
                 elif p==QCoreApplication.translate("addcodeline","QueryVar"):   self.acl_queryVar()  
                 elif p==QCoreApplication.translate("addcodeline","IfVar"):      self.acl_ifVar()                
                 elif p==QCoreApplication.translate("addcodeline","Calc"):       self.acl_calc()
@@ -5111,6 +5199,12 @@ class FtcGuiApplication(TouchApplication):
     
     def acl_fromIn(self):
         self.acl("FromIn " + self.lastIF + " 1 S ?")
+        
+    def acl_fromKeypad(self):
+        self.acl("FromKeypad integer 0 32768")
+        
+    def acl_fromDial(self):
+        self.acl("FromDial integer -10 10 Set level")
         
     def acl_queryVar(self):
         self.acl("QueryVar x")
