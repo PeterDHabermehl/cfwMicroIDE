@@ -520,7 +520,7 @@ class execThread(QThread):
                 self.cmdPrint("STEPON: tap screen!")
             elif "STEPOFF" in line:  self.singlestep=False           
             if "GETELAPSEDTIME" in line:
-                self.cmdPrint(str(time.time()-self.timestamp))
+                self.cmdPrint("[sec]: "+str(time.time()-self.timestamp))
             if "TIMERCLEAR" in line:
                 self.timestamp=time.time()
             if "MEMDUMP" in line:
@@ -535,7 +535,7 @@ class execThread(QThread):
         elif stack[0]== "MotorE":   self.cmdMotorEncoder(stack)
         elif stack[0]== "MotorES":  self.cmdMotorEncoderSync(stack)
         elif stack[0]== "Delay":    self.cmdDelay(stack)
-        elif stack[0]== "TimerQuery": self.cmdPrint(str(int((time.time()-self.timestamp)*1000)))
+        elif stack[0]== "TimerQuery": self.cmdPrint("Timer: "+str(int((time.time()-self.timestamp)*1000)))
         elif stack[0]== "TimerClear": self.timestamp=time.time()
         elif stack[0]== "IfTimer":  self.cmdIfTimer(stack)
         elif stack[0]== "IfTime":   self.cmdIfTime(stack)
@@ -582,7 +582,7 @@ class execThread(QThread):
             
     def getVal(self,var):
         for i in self.memory:
-            if i[0]==var: return i[1]
+            if i[0]==var: return int(i[1])
         try:
             return int(var)
         except:
@@ -629,9 +629,9 @@ class execThread(QThread):
             time.sleep(0.01)
         
         try:
-            t=str(max(min(int(self.imesg),v2),v1))
+            t=int(max(min(int(self.imesg),v2),v1))
         except:
-            t=str(v)
+            t=int(v)
         
         cc=0
         for i in self.memory:
@@ -660,10 +660,9 @@ class execThread(QThread):
             time.sleep(0.01)
         
         try:
-            print("im:",self.imesg)
-            t=str(max(min(int(self.imesg),v2),v1))
+            t=max(min(int(self.imesg),v2),v1)
         except:
-            t=str(v)
+            t=v
         
         cc=0
         for i in self.memory:
@@ -792,7 +791,7 @@ class execThread(QThread):
                 pass
             
             try:
-                lfn=logdir+"log"+time.strftime("%Y%m%d-%H%M%S")
+                lfn=logdir+"log"+time.strftime("%Y%m%d-%H%M%S")+".txt"
                 while os.path.exists(lfn):
                     lfn=lfn+"-"
                 self.logfile=open(lfn,"w",encoding="utf-8")
@@ -1470,6 +1469,7 @@ class execThread(QThread):
         else:
             self.modStack.append(self.count)
             self.modMStack.append(n)
+
             if len(stack)>2:
                 self.modLStack.append(self.getVal(stack[2])-1)
             else:
@@ -4961,7 +4961,7 @@ class FtcGuiApplication(TouchApplication):
         s,r=TouchAuxRequestInteger(QCoreApplication.translate("exec","Input"),msg,int(stack),miv,mav,"Okay",self.mainwindow).exec_()   
         
         self.et.setIMsg(stack)
-        if s: self.et.setIMsg(str(r))
+        if s: self.et.setIMsg(r)
         
         self.et.setMsg(1)
         

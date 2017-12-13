@@ -129,11 +129,17 @@ def translate(string, locale = LOCAL):
         if locale == "de": return "Lade eine Logdatei vom TXT herunter:"
         if locale == "fr": return "T&eacute;l&eacute;charger un fichier journal depuis le TXT"
     elif string == "logfile":
-        if locale == "de": return "Logdatei"
+        if locale == "de": return "Log File"
         if locale == "fr": return "fichier journal"
     elif string == "Please select log file:":
-        if locale == "de": return "Bitte Logdatei ausw&auml;hlen:"
+        if locale == "de": return "Bitte Log File ausw&auml;hlen:"
         if locale == "fr": return "Veuillez s&eacute;lectionner le fichier journal:"
+    elif string == "<b>Convert</b> a":
+        if locale == "de": return "<b>Konvertiere</b> ein"
+        if locale == "fr": return "<b>Convertir</b> un"
+    elif string == "to .CSV":
+        if locale == "de": return "in .CSV-Format"
+        if locale == "fr": return "en .CSV"
     elif string == "":
         if locale == "de": return ""
         if locale == "fr": return ""

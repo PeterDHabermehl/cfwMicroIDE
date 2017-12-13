@@ -3,7 +3,7 @@
 
 import translator as tr
 import htmlhelper as hth
-import cgi, os, json
+import cgi, os, json, sys
 
 def mainpage():
     hth.htmlhead("startIDE", tr.translate("Control your model with a finger touch"))
@@ -30,6 +30,10 @@ def mainpage():
     hth.text(tr.translate("<b>Download</b> a"))
     hth.link(tr.translate("logfile"),"index.py?action=LogDown") 
     hth.text(tr.translate("from your TXT."))
+    hth.lf(1)
+    hth.text(tr.translate("<b>Convert</b> a"))
+    hth.link(tr.translate("logfile"),"index.py?action=LogCSV") 
+    hth.text(tr.translate("to .CSV"))
     hth.separator()
     hth.htmlfoot("","/","TXT Home")
 
@@ -52,6 +56,10 @@ def download(obj:str):
         hth.text(tr.translate("Please select log file:"))
         hth.lf(2)
         downloadfiles("logfiles/")
+    elif obj=="C":
+        hth.text(tr.translate("Please select log file:"))
+        hth.lf(2)
+        downloadCSVfiles("logfiles/")
     hth.lf(2)
     hth.separator()
     hth.htmlfoot("","javascript:history.back()",tr.translate("Back"))
@@ -115,6 +123,13 @@ def downloadfiles(directory:str):
         hth.link(a,directory+a,"download")
         hth.lf()    
 
+def downloadCSVfiles(directory:str):
+    stack=os.listdir(directory)
+    for a in stack:
+        if a[-4:]==".txt":
+            hth.link(a,"index.py?csv="+directory+a)
+            hth.lf()
+
 def uploader(obj:str, fileitem):
     
     filename = fileitem.filename    
@@ -143,6 +158,63 @@ def filelister(name:str):
         for i in code:
             a=a+1
             print("%5i:  %s" % (a,i))
+
+def csvconvert(name:str):
+    varlist=[]
+    with open(name, "r", encoding="utf-8") as f:
+        for line in f:
+            stack=line.split()
+            found=False
+            for v in varlist:
+                if v[0]==stack[0]: found=True
+    
+            if not found: varlist.append([stack[0],0])
+    f.close()
+    
+    for i in range(0,len(varlist)):
+        varlist[i][1]=open(name+"-csv-export-"+str(i), "w", encoding="utf-8")
+        varlist[i][1].write(varlist[i][0]+"\n")
+    
+    with open(name, "r", encoding="utf-8") as f:
+        for line in f:
+            stack=line.split()
+            found=-1
+            for i in range(0,len(varlist)):
+                if varlist[i][0]==stack[0]: found=i
+            
+            if found>-1:
+                varlist[found][1].write(str(stack[1])+"\n")
+    f.close()
+    
+    for v in varlist:
+        v[1].close()
+    
+    for i in range(0,len(varlist)):
+        varlist[i][1]=open(name+"-csv-export-"+str(i), "r", encoding="utf-8")
+        
+    ofs =len(varlist)
+    
+    #with open(name+"-csv-export-final", "w", encoding="utf-8") as ef:
+    
+    print("Content-Type: text/plain; charset=UTF-8")
+    print("Content-Disposition: attachment; filename=%s" % os.path.basename(name[:-4]+".csv"))
+    print('')
+        
+    while ofs>0:
+        for i in range(0, len(varlist)):
+            ln=""
+            if not varlist[i][1].closed: ln=varlist[i][1].readline()
+            if ln: sys.stdout.write(ln[:-1]+";")   #ef.write(ln[:-1]+";") 
+            elif not varlist[i][1].closed:
+                varlist[i][1].close()
+                ofs=ofs-1 
+        
+        #sys.stdout.write("\n")
+        #ef.close()
+    
+    for i in range(0,len(varlist)):
+        varlist[i][1].close()
+        os.remove(name+"-csv-export-"+str(i))
         
 # *****************************************************
 # *************** Ab hier geht's los ******************
@@ -163,12 +235,15 @@ if __name__ == "__main__":
         if form["action"].value=="PList": codelist("P")
         if form["action"].value=="MList": codelist("M")
         if form["action"].value=="LogDown": download("L")
+        if form["action"].value=="LogCSV": download("C")
     elif "module" in form:
         uploader("M", form["module"])
     elif "project" in form:
         uploader("P", form["project"])
     elif "list" in form:
         filelister(form["list"].value)
+    elif "csv" in form:
+        csvconvert(form["csv"].value)
     else:
         mainpage()
     
