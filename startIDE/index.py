@@ -209,7 +209,7 @@ def csvconvert(name:str):
                 varlist[i][1].close()
                 ofs=ofs-1 
         
-        #sys.stdout.write("\n")
+        sys.stdout.write("\n")
         #ef.close()
     
     for i in range(0,len(varlist)):

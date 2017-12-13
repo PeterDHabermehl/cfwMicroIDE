@@ -1,1 +1,1 @@
-["# Speed controller", "Interrupt Every 500 INT", "Init R_Foto 0", "Init PWM 0", "CallExt CTL 1", "# ", "Module INT", "IfInDig TXT 2 False NXT", "Stop", "Tag NXT", "MEnd"]
+["# Speed controller", "Interrupt Every 500 INT", "Init R_Foto 0", "Init PWM 0", "CallExt CTL 1", "# ", "Module INT", "IfInDig FTD 2 False NXT", "Stop", "Tag NXT", "MEnd"]
