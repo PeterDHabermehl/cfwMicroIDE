@@ -126,8 +126,9 @@ class execThread(QThread):
     clearText=pyqtSignal()
     execThreadFinished=pyqtSignal()
     showMessage=pyqtSignal(str)
-    requestKeyboard=pyqtSignal(int)
-    requestDial=pyqtSignal(str, int, int, int)
+    requestKeyboard=pyqtSignal(int, str)
+    requestDial=pyqtSignal(str, int, int, int, str)
+    requestBtn=pyqtSignal(str, str, list)
     
     def __init__(self, codeList, output, starter, RIF,TXT,FTD, parent):
         QThread.__init__(self, parent)
@@ -561,6 +562,7 @@ class execThread(QThread):
         elif stack[0]== "FromIn":   self.cmdFromIn(stack)
         elif stack[0]== "FromKeypad": self.cmdFromKeypad(stack)
         elif stack[0]== "FromDial": self.cmdFromDial(stack)
+        elif stack[0]== "FromButtons": self.cmdFromButtons(stack)
         elif stack[0]== "QueryVar": self.cmdQueryVar(stack)
         elif stack[0]== "Calc":     self.cmdCalc(stack)
         elif stack[0]== "IfVar":    self.cmdIfVar(stack)
@@ -624,7 +626,7 @@ class execThread(QThread):
         if self.halt: return
         
         self.msg=0
-        self.requestKeyboard.emit(v)
+        self.requestKeyboard.emit(v, stack[1])
         while self.msg==0:
             time.sleep(0.01)
         
@@ -655,7 +657,7 @@ class execThread(QThread):
         if self.halt: return
         
         self.msg=0
-        self.requestDial.emit(v3,v,v1,v2)
+        self.requestDial.emit(v3,v,v1,v2, stack[1])
         while self.msg==0:
             time.sleep(0.01)
         
@@ -674,7 +676,6 @@ class execThread(QThread):
             self.halt=True
             self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated")  
 
-        
     def cmdQueryVar(self, stack):
         v=self.getVal(stack[1])
         if not self.halt:
@@ -697,11 +698,64 @@ class execThread(QThread):
         elif op=="max": res=int(max(v1,v2))
         elif op=="sin": res=int(v1*math.sin(math.radians(v2)))
         elif op=="cos": res=int(v1*math.cos(math.radians(v2)))        
+        elif op=="&&":
+            if (v1!=0) and (v2!=0): res=1 
+            else: res=0
+        elif op=="||":
+            if (v1!=0) or (v2!=0): res=1
+            else: res=0
+        elif op=="<":
+            if v1<v2: res=1 
+            else: res=0  
+        elif op=="==":
+            if v1==v2: res=1 
+            else: res=0 
+        elif op=="!=":
+            if v1!=v2: res=1 
+            else: res=0 
+        elif op==">":
+            if v1>v2: res=1 
+            else: res=0 
+        
         
         cc=0
         for i in self.memory:
             if i[0]==stack[1]:
                 self.memory[cc][1] = res
+                break
+            cc=cc+1
+        if cc==len(self.memory):        
+            self.halt=True
+            self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated") 
+
+
+    def cmdFromButtons(self, stack):
+        v=stack[1]  # Variable
+
+        if self.halt: return
+        
+        self.msg=0
+        self.requestBtn.emit("","",stack[2:])
+        while self.msg==0:
+            time.sleep(0.01)
+        
+        try:
+            t=int(self.imesg)
+        except:
+            t=-1
+        
+        cc=0
+        for i in self.memory:
+            if i[0]==stack[1]:
+                self.memory[cc][1] = t
+                break
+            cc=cc+1
+        if cc==len(self.memory):        
+            self.halt=True
+            self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated") 
+        for i in self.memory:
+            if i[0]==stack[1]:
+                self.memory[cc][1] = t
                 break
             cc=cc+1
         if cc==len(self.memory):        
@@ -4191,7 +4245,7 @@ class editCalc(TouchDialog):
         
         self.operator=QComboBox()
         self.operator.setStyleSheet("font-size: 18px;")
-        oplist=["+", "-", "*", "/", "mod", "exp", "root", "min", "max", "sin", "cos"]
+        oplist=["+", "-", "*", "/", "mod", "exp", "root", "min", "max", "sin", "cos","&&","||","<","==","!=",">"]
         self.operator.addItems(oplist)
         if self.cmdline.split()[3] in oplist:
             self.operator.setCurrentIndex(oplist.index(self.cmdline.split()[3]))
@@ -4918,6 +4972,7 @@ class FtcGuiApplication(TouchApplication):
                 self.et.showMessage.connect(self.messageBox)
                 self.et.requestKeyboard.connect(self.requestKeyboard)
                 self.et.requestDial.connect(self.requestDial)
+                self.et.requestBtn.connect(self.requestButton)
                 self.et.start() 
             else:
                 self.et.stop()
@@ -4951,18 +5006,31 @@ class FtcGuiApplication(TouchApplication):
         (v1,v2)=t.exec_()       
         self.et.setMsg(1)
     
-    def requestKeyboard(self, stack):
-        t=TouchAuxKeyboard(QCoreApplication.translate("exec","Input"),str(stack),self.mainwindow).exec_()        
+    def requestKeyboard(self, stack, title):
+        t=TouchAuxKeyboard(title,str(stack),self.mainwindow).exec_()        
         self.et.setIMsg(t)
         self.et.setMsg(1)
     
-    def requestDial(self, msg, stack, miv, mav):
+    def requestDial(self, msg, stack, miv, mav, title):
         # def __init__(self,title:str,message:str,initvalue:int,minval:int,maxval:int,button:str,parent=None):
-        s,r=TouchAuxRequestInteger(QCoreApplication.translate("exec","Input"),msg,int(stack),miv,mav,"Okay",self.mainwindow).exec_()   
+        s,r=TouchAuxRequestInteger(title,msg,int(stack),miv,mav,"Okay",self.mainwindow).exec_()   
         
         self.et.setIMsg(stack)
         if s: self.et.setIMsg(r)
         
+        self.et.setMsg(1)
+        
+    def requestButton(self, title, msg, buttons):
+        fta=TouchAuxMultibutton(title, self.mainwindow)
+        fta.setButtons(buttons)
+        fta.setTextSize(3)
+        fta.setBtnTextSize(3)
+        (s,r)=fta.exec_()      
+        
+        if s:
+            self.et.setIMsg(str(buttons.index(r)+1))
+        else:
+            self.et.setIMsg(str(-1))
         self.et.setMsg(1)
         
     def setMainWindow(self, status):
@@ -5056,6 +5124,7 @@ class FtcGuiApplication(TouchApplication):
                              QCoreApplication.translate("addcodeline","FromIn"),
                              QCoreApplication.translate("addcodeline","FromKeypad"),
                              QCoreApplication.translate("addcodeline","FromDial"),
+                             QCoreApplication.translate("addcodeline","FromButtons"),
                              #QCoreApplication.translate("addcodeline","Shelf"),
                              QCoreApplication.translate("addcodeline","QueryVar"),
                              QCoreApplication.translate("addcodeline","IfVar"),
@@ -5074,6 +5143,7 @@ class FtcGuiApplication(TouchApplication):
                 elif p==QCoreApplication.translate("addcodeline","FromIn"):     self.acl_fromIn()
                 elif p==QCoreApplication.translate("addcodeline","FromKeypad"): self.acl_fromKeypad()
                 elif p==QCoreApplication.translate("addcodeline","FromDial"): self.acl_fromDial()
+                elif p==QCoreApplication.translate("addcodeline","FromButtons"): self.acl_fromButtons()
                 elif p==QCoreApplication.translate("addcodeline","Shelf"):      self.acl_shelf()
                 elif p==QCoreApplication.translate("addcodeline","QueryVar"):   self.acl_queryVar()  
                 elif p==QCoreApplication.translate("addcodeline","IfVar"):      self.acl_ifVar()                
@@ -5205,6 +5275,9 @@ class FtcGuiApplication(TouchApplication):
         
     def acl_fromDial(self):
         self.acl("FromDial integer -10 10 Set level")
+    
+    def acl_fromButtons(self):
+        self.acl("FromButtons integer Choice1 Choice2")
         
     def acl_queryVar(self):
         self.acl("QueryVar x")
