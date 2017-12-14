@@ -1,4 +1,5 @@
 News<hr>
+v0.93.9:<br> FromKeypad, FromDial to get input<hr>
 v0.93.1:<br> FromIn function to read input into a variable<hr>
 v0.93 (20171210):<br> Integer variables and arithmetics<hr>
 v0.92.6:<br>added Timer Interrupt <hr>
