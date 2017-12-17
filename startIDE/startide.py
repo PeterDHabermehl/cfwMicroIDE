@@ -619,8 +619,8 @@ class execThread(QThread):
 
     def cmdFromKeypad(self, stack):
         v=self.getVal(stack[1])   # Variable
-        v1=self.getVal(stack[2])  # min-wert
-        v2=self.getVal(stack[3])  # max-wert
+        v1=min(self.getVal(stack[2]),self.getVal(stack[3]) )  # min-wert
+        v2=max(self.getVal(stack[2]),self.getVal(stack[3]) )  # max-wert
         
         if self.halt: return
         
@@ -646,8 +646,8 @@ class execThread(QThread):
 
     def cmdFromDial(self, stack):
         v=self.getVal(stack[1])   # Variable
-        v1=self.getVal(stack[2])  # min-wert
-        v2=self.getVal(stack[3])  # max-wert
+        v1=min(self.getVal(stack[2]),self.getVal(stack[3]) )  # min-wert
+        v2=max(self.getVal(stack[2]),self.getVal(stack[3]) )  # max-wert
         v3=""
         for a in range(4,len(stack)):
             v3=v3+stack[a]+" "
@@ -5419,7 +5419,7 @@ class FtcGuiApplication(TouchApplication):
         
     def messageBox(self, stack):
         msg=stack.split("'")
-        t=TouchMessageBox(QCoreApplication.translate("exec","Message"))
+        t=TouchMessageBox(QCoreApplication.translate("exec","Message"),self.mainwindow)
         t.setCancelButton()
         t.setText(msg[0])
         t.setTextSize(2)
@@ -5434,7 +5434,11 @@ class FtcGuiApplication(TouchApplication):
         self.et.setMsg(1)
     
     def requestDial(self, msg, stack, miv, mav, title):
-        s,r=TouchAuxRequestInteger(title,msg,int(stack),miv,mav,"Okay").exec_()   
+        s,r=TouchAuxRequestInteger(
+            title,msg,
+            int(stack),
+            min(miv,mav),
+            max(miv,mav),"Okay",self.mainwindow).exec_()   
         
         self.et.setIMsg(stack)
         if s: self.et.setIMsg(r)

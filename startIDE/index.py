@@ -30,16 +30,34 @@ def mainpage():
     hth.text(tr.translate("<b>Download</b> a"))
     hth.link(tr.translate("logfile"),"index.py?action=LogDown") 
     hth.text(tr.translate("from your TXT."))
-    hth.lf(1)
+    hth.lf(2)
     hth.text(tr.translate("<b>Convert</b> a"))
     hth.link(tr.translate("logfile"),"index.py?action=LogCSV") 
     hth.text(tr.translate("to .CSV"))
+    hth.separator()
+    hth.lf(1)
+    hth.text(tr.translate("<b><u>Experts corner</b></u>"))
+    hth.lf(2)    
+    hth.text(tr.translate("<b>Download</b> a"))
+    hth.link(tr.translate("project"),"index.py?action=PCDown")
+    hth.text(tr.translate("or a"))
+    hth.link(tr.translate("module"),"index.py?action=MCDown")
+    hth.text(tr.translate("and convert it to plain text."))
+    hth.lf(1)    
+    hth.text(tr.translate("<b>Upload</b> a"))
+    hth.link(tr.translate("project"),"index.py?action=PCUp")
+    hth.text(tr.translate("or a"))
+    hth.link(tr.translate("module"),"index.py?action=MCUp")
+    hth.text(tr.translate("from a plain text file."))
+    hth.lf(1)  
     hth.separator()
     hth.htmlfoot("","/","TXT Home")
 
 def download(obj:str):
     if obj=="P": hth.htmlhead("startIDE", tr.translate("Download a project from your TXT"))
     elif obj=="M": hth.htmlhead("startIDE", tr.translate("Download a module from your TXT"))
+    elif obj=="PC": hth.htmlhead("startIDE", tr.translate("Download a project as a text file"))
+    elif obj=="MC": hth.htmlhead("startIDE", tr.translate("Download a module as a text file"))
     elif obj=="L": hth.htmlhead("startIDE", tr.translate("Download a log file from your TXT"))
     hth.separator()
     hth.lf()
@@ -52,6 +70,14 @@ def download(obj:str):
         hth.text(tr.translate("Please select module:"))
         hth.lf(2)
         downloadfiles("modules/")
+    elif obj=="PC":
+        hth.text(tr.translate("Please select project:"))
+        hth.lf(2)
+        downloadCfiles("projects/")
+    elif obj=="MC":
+        hth.text(tr.translate("Please select module:"))
+        hth.lf(2)
+        downloadCfiles("modules/")
     elif obj=="L":
         hth.text(tr.translate("Please select log file:"))
         hth.lf(2)
@@ -67,22 +93,29 @@ def download(obj:str):
 def upload(obj:str):
     if obj=="P": hth.htmlhead("startIDE", tr.translate("Upload a project  to your TXT"))
     elif obj=="M": hth.htmlhead("startIDE", tr.translate("Upload a module to your TXT"))
-    
+    if obj=="PC": hth.htmlhead("startIDE", tr.translate("Upload a project text file to your TXT"))
+    elif obj=="MC": hth.htmlhead("startIDE", tr.translate("Upload a module text file to your TXT"))
     hth.separator()
     hth.lf(2)
     
-    if obj=="P": hth.text(tr.translate("Please select project:"))
-    elif obj=="M": hth.text(tr.translate("Please select module:"))
+    if obj=="P" or obj=="PC": hth.text(tr.translate("Please select project:"))
+    elif obj=="M" or obj=="MC":  hth.text(tr.translate("Please select module:"))
     
     print('<form action="index.py" method="post" enctype="multipart/form-data">')
     print('<label>')
     
-    if obj=="P":
+    if obj[0]=="P":
         hth.text(tr.translate("Project file:"))
-        print('<input name="project" type="file" size="50" accept="application/zip,application/x-zip,application/x-zip-compressed"> </label>')
-    elif obj=="M":
+        if len(obj)<2:            
+            print('<input name="project" type="file" size="50" accept="application/zip,application/x-zip,application/x-zip-compressed"> </label>')
+        else:
+            print('<input name="projectC" type="file" size="50" accept="text/plain"> </label>')
+    elif obj[0]=="M":
         hth.text(tr.translate("Module file:"))
-        print('<input name="module" type="file" size="50" accept="application/zip,application/x-zip,application/x-zip-compressed"> </label>')
+        if len(obj)<2:
+            print('<input name="module" type="file" size="50" accept="application/zip,application/x-zip,application/x-zip-compressed"> </label>')
+        else:
+             print('<input name="moduleC" type="file" size="50" accept="text/plain"> </label>')           
 
     print('<button type="submit">')
     hth.text(tr.translate("Upload!"))
@@ -123,6 +156,12 @@ def downloadfiles(directory:str):
         hth.link(a,directory+a,"download")
         hth.lf()    
 
+def downloadCfiles(directory:str):
+    stack=os.listdir(directory)
+    for a in stack:
+        hth.link(a,"index.py?dc="+directory+a)
+        hth.lf()
+
 def downloadCSVfiles(directory:str):
     stack=os.listdir(directory)
     for a in stack:
@@ -134,14 +173,27 @@ def uploader(obj:str, fileitem):
     
     filename = fileitem.filename    
     
-    if obj=="P": filename = "projects/"+filename
-    elif obj=="M": filename = "modules/"+filename
+    if obj[0]=="P": filename = "projects/"+filename
+    elif obj[0]=="M": filename = "modules/"+filename
     
-    try:
-        open(filename, 'wb').write(fileitem.file.read())
-        os.chmod(filename,0o666)
+    if filename[-4:-3]==".": filename=filename[:-4]
+    
+    if 1: #try:
+        if len(obj)<2:
+            open(filename, 'wb').write(fileitem.file.read())
+            os.chmod(filename,0o666)
+        else:
+            stack=[]
+            for line in fileitem.file:
+                stack.append(line[:-1].decode())
+                
+            with open(filename, 'w') as f:
+                json.dump(stack,f)
+            f.close()
+            os.chmod(filename,0o666)
+        
         mainpage()
-    except:
+    else: #except:
         hth.htmlhead("startIDE", tr.translate("Upload failed"))
         hth.htmlfoot("","index.py",tr.translate("Back"))
 
@@ -158,6 +210,20 @@ def filelister(name:str):
         for i in code:
             a=a+1
             print("%5i:  %s" % (a,i))
+    f.close()
+    
+def cconvert(name:str):
+    print("Content-Type: text/plain; charset=UTF-8")
+    print("Content-Disposition: attachment; filename=%s" % os.path.basename(name+".txt"))
+    print('')
+
+    with open(name,"r", encoding="utf-8") as f:
+        code=json.load(f)
+        a=0
+        for i in code:
+            a=a+1
+            print(i)
+    f.close()
 
 def csvconvert(name:str):
     varlist=[]
@@ -194,8 +260,6 @@ def csvconvert(name:str):
         
     ofs =len(varlist)
     
-    #with open(name+"-csv-export-final", "w", encoding="utf-8") as ef:
-    
     print("Content-Type: text/plain; charset=UTF-8")
     print("Content-Disposition: attachment; filename=%s" % os.path.basename(name[:-4]+".csv"))
     print('')
@@ -210,7 +274,6 @@ def csvconvert(name:str):
                 ofs=ofs-1 
         
         sys.stdout.write("\n")
-        #ef.close()
     
     for i in range(0,len(varlist)):
         varlist[i][1].close()
@@ -223,15 +286,16 @@ def csvconvert(name:str):
 if __name__ == "__main__":
     
     form = cgi.FieldStorage()
-#    hth.htmlhead("startIDE", tr.translate("Upload a project  to your TXT"))
-#    print(form)
-#    hth.htmlfoot("","/","TXT Home")
     
     if "action" in form:
         if form["action"].value=="PDown": download("P")
         if form["action"].value=="MDown": download("M")
         if form["action"].value=="PUp": upload("P")
         if form["action"].value=="MUp": upload("M")
+        if form["action"].value=="PCDown": download("PC")
+        if form["action"].value=="MCDown": download("MC")
+        if form["action"].value=="PCUp": upload("PC")
+        if form["action"].value=="MCUp": upload("MC")
         if form["action"].value=="PList": codelist("P")
         if form["action"].value=="MList": codelist("M")
         if form["action"].value=="LogDown": download("L")
@@ -240,10 +304,16 @@ if __name__ == "__main__":
         uploader("M", form["module"])
     elif "project" in form:
         uploader("P", form["project"])
+    elif "moduleC" in form:
+        uploader("MC", form["moduleC"])
+    elif "projectC" in form:
+        uploader("PC", form["projectC"])
     elif "list" in form:
         filelister(form["list"].value)
     elif "csv" in form:
         csvconvert(form["csv"].value)
+    elif "dc" in form:
+        cconvert(form["dc"].value)
     else:
         mainpage()
     
