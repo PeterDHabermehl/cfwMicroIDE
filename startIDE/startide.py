@@ -337,7 +337,7 @@ class execThread(QThread):
         elif self.requireFTD and self.FTD==None:
             self.msgOut(QCoreApplication.translate("exec","ftduino not found!\nProgram terminated\n"))
             if not IGNOREMISSING: self.stop()
-        elif extmodfailure:    
+        elif extmodfailure:
             self.msgOut(QCoreApplication.translate("exec","External Module")+ " \n'"+emf+"' "+QCoreApplication.translate("exec","not found.\nProgram terminated\n"))
             self.stop()
         elif txtanaloginputfailure!="":
@@ -752,14 +752,7 @@ class execThread(QThread):
         if cc==len(self.memory):        
             self.halt=True
             self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated") 
-        for i in self.memory:
-            if i[0]==stack[1]:
-                self.memory[cc][1] = t
-                break
-            cc=cc+1
-        if cc==len(self.memory):        
-            self.halt=True
-            self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated")    
+
     
     def cmdIfVar(self,stack):
         v1=self.getVal(stack[1])
@@ -832,8 +825,15 @@ class execThread(QThread):
             elif stack[3]=="C":
                 tx="Not yet implemented"
         ### und noch der variable zuweisen...         
-        for i in range(0,len(self.memory)):
-            if self.memory[i][0]==var: self.memory[i][1]=int(v)
+        cc=0
+        for i in self.memory:
+            if i[0]==stack[1]:
+                self.memory[cc][1] = t
+                break
+            cc=cc+1
+        if cc==len(self.memory):        
+            self.halt=True
+            self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated") 
             
     def cmdLog(self, stack):
         if stack[1]=="1" and not self.logging:
