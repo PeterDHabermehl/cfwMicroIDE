@@ -562,6 +562,7 @@ class execThread(QThread):
         elif stack[0]== "FromKeypad": self.cmdFromKeypad(stack)
         elif stack[0]== "FromDial": self.cmdFromDial(stack)
         elif stack[0]== "FromButtons": self.cmdFromButtons(stack)
+        elif stack[0]== "FromRIIR": self.cmdFromRIIR(stack)
         elif stack[0]== "QueryVar": self.cmdQueryVar(stack)
         elif stack[0]== "Calc":     self.cmdCalc(stack)
         elif stack[0]== "IfVar":    self.cmdIfVar(stack)
@@ -674,6 +675,23 @@ class execThread(QThread):
         if cc==len(self.memory):        
             self.halt=True
             self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated")  
+
+    def cmdFromRIIR(self, stack):        
+        try:
+            t=self.RIF.GetIR()
+        except:
+            t=-1
+        
+        cc=0
+        for i in self.memory:
+            if i[0]==stack[1]:
+                self.memory[cc][1] = t
+                break
+            cc=cc+1
+        if cc==len(self.memory):        
+            self.halt=True
+            self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated")      
+
 
     def cmdQueryVar(self, stack):
         v=self.getVal(stack[1])
