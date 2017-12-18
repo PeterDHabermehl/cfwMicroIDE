@@ -64,6 +64,8 @@ except:
 PORTRAIT=1
 LANDSCAPE=0
 
+TXTsndStack = [ "---", "Plane", "Alarm", "Bell", "Brakes", "Horn(short)", "Horn(long)", "WoodCrack", "Excavator", "Fantasy1", "Fantasy2", "Fantasy3", "Fantasy4", "Farm", "Emergency", "Fireplace", "Racecar", "Helicopter", "Hydraulic", "Engine", "EngineStart", "PropPlane", "RollerCoaster", "ShipHorn", "Tractor", "Truck", "EyeBlink", "HeadUp", "HeadDown"]
+
 #
 # some auxiliaries
 #
@@ -552,6 +554,7 @@ class execThread(QThread):
         elif stack[0]== "Clear":    self.clrOut()
         elif stack[0]== "Message":  self.cmdMessage(line[8:])
         elif stack[0]== "Log":      self.cmdLog(stack)
+        elif stack[0]== "Sound":    self.cmdSound(stack)
         elif stack[0]== "Module":   self.count=len(self.codeList)
         elif stack[0]== "Call":     self.cmdCall(stack)
         elif stack[0]== "CallExt":  self.cmdCall(stack)
@@ -884,6 +887,15 @@ class execThread(QThread):
             except:
                 self.cmdPrint("Failed to remove\nall logfiles.")
                 
+    def cmdSound(self, stack):
+        snd=TXTsndStack.index(stack[1])
+        loop=min(max(self.getVal(stack[2]),1),29)
+        vol= min(max(self.getVal(stack[3]),0),100)
+        print("sound", snd,loop,vol)        
+        if self.TXT:
+            self.TXT.play_sound(snd,loop,vol)
+
+
     def cmdQueryIn(self, stack):
         tx = "" 
         v = ""
