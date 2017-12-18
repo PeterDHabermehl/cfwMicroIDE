@@ -846,7 +846,7 @@ class execThread(QThread):
         cc=0
         for i in self.memory:
             if i[0]==stack[4]:
-                self.memory[cc][1] = t
+                self.memory[cc][1] = v
                 break
             cc=cc+1
         if cc==len(self.memory):        
