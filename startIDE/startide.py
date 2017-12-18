@@ -845,13 +845,13 @@ class execThread(QThread):
         ### und noch der variable zuweisen...         
         cc=0
         for i in self.memory:
-            if i[0]==stack[1]:
+            if i[0]==stack[4]:
                 self.memory[cc][1] = t
                 break
             cc=cc+1
         if cc==len(self.memory):        
             self.halt=True
-            self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated") 
+            self.cmdPrint("Variable '"+stack[4]+"'\nreferenced without\nInit!\nProgram terminated") 
             
     def cmdLog(self, stack):
         if stack[1]=="1" and not self.logging:
@@ -5795,7 +5795,7 @@ class FtcGuiApplication(TouchApplication):
         self.acl("Print ")
     
     def acl_queryIn(self):
-        self.acl("QueryKIn " + self.lastIF + " 1 S")
+        self.acl("QueryIn " + self.lastIF + " 1 S")
 
     def acl_message(self):
         self.acl("Message  'Okay")
