@@ -9,11 +9,7 @@ url: https://github.com/PeterDHabermehl/startIDE/raw/master/ddoc/Manual_090_de.p
 exec: startide.py
 managed: yes
 uuid: 0e500e10-33ee-11e7-9598-0800200c9a66
-<<<<<<< HEAD
-version: 0.93.12.2
-=======
-version: 0.94
->>>>>>> eec60a209606335906e16f4505ee932049427255
+version: 0.94.3
 firmware: >=0.9.3
 [de]
 desc: Einsteiger-IDE für einfache Modelle

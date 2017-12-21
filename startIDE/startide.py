@@ -708,6 +708,7 @@ class execThread(QThread):
         if self.halt: return
     
         op=stack[3]
+        res=0
         if op=="+": res=int(v1+v2)
         elif op=="-": res=int(v1-v2)
         elif op=="*": res=int(v1*v2)
@@ -719,25 +720,14 @@ class execThread(QThread):
         elif op=="max": res=int(max(v1,v2))
         elif op=="sin": res=int(v1*math.sin(math.radians(v2)))
         elif op=="cos": res=int(v1*math.cos(math.radians(v2)))        
-        elif op=="&&":
-            if (v1!=0) and (v2!=0): res=1 
-            else: res=0
-        elif op=="||":
-            if (v1!=0) or (v2!=0): res=1
-            else: res=0
-        elif op=="<":
-            if v1<v2: res=1 
-            else: res=0  
-        elif op=="==":
-            if v1==v2: res=1 
-            else: res=0 
-        elif op=="!=":
-            if v1!=v2: res=1 
-            else: res=0 
-        elif op==">":
-            if v1>v2: res=1 
-            else: res=0 
-        
+        elif op=="&&" and (v1!=0) and (v2!=0): res=1 
+        elif op=="||" and ((v1!=0) or (v2!=0)): res=1
+        elif op=="<"  and (v1<v2): res=1  
+        elif op=="==" and (v1==v2): res=1 
+        elif op=="!=" and (v1!=v2): res=1 
+        elif op==">"  and (v1>v2): res=1 
+        elif op==">=" and (v1>=v2): res=1 
+        elif op=="<=" and (v1<=v2): res=1 
         
         cc=0
         for i in self.memory:
@@ -787,6 +777,8 @@ class execThread(QThread):
         elif    (op==">") and (v1>v2): res=True
         elif    (op=="==") and (v1==v2): res=True
         elif    (op=="!=") and (v1!=v2): res=True
+        elif    (op=="<=") and (v1<=v2): res=True
+        elif    (op==">=") and (v1>=v2): res=True
         
         if res:
             n=-1
@@ -1432,6 +1424,8 @@ class execThread(QThread):
             elif stack[4]=="==" and (v==val): j=True
             elif stack[4]=="!=" and (v!=val): j=True
             elif stack[4]==">" and (v>val): j=True
+            elif stack[4]==">=" and (v>=val): j=True
+            elif stack[4]=="<=" and (v<=val): j=True
             self.parent.processEvents()
         # stop gedrueckt?    
         if self.tAct:
@@ -1532,6 +1526,8 @@ class execThread(QThread):
         elif stack[4]=="==" and (v==val): j=True
         elif stack[4]=="!=" and (v!=val): j=True
         elif stack[4]==">" and (v>val): j=True
+        elif stack[4]==">=" and (v>=val): j=True
+        elif stack[4]=="<=" and (v<=val): j=True
         
         if j:
             n=-1
@@ -3181,14 +3177,16 @@ class editIfInput(TouchDialog):
         
         self.operator=QComboBox()
         self.operator.setStyleSheet("font-size: 18px;")
-        self.operator.addItems(["  <", " ==", " !=", "  >"])
+        self.operator.addItems(["  <", " <=", " ==", " !=", " >=", "  >"])
 
         x=self.cmdline.split()[4]
         
         if x=="<":    self.operator.setCurrentIndex(0)
-        elif x=="==": self.operator.setCurrentIndex(1)
-        elif x=="!=": self.operator.setCurrentIndex(2)
-        elif x==">":  self.operator.setCurrentIndex(3)
+        elif x=="<=": self.operator.setCurrentIndex(1)
+        elif x=="==": self.operator.setCurrentIndex(2)
+        elif x=="!=": self.operator.setCurrentIndex(3)
+        elif x==">=": self.operator.setCurrentIndex(4)
+        elif x==">":  self.operator.setCurrentIndex(5)
         
         k5.addWidget(self.operator)
 
@@ -3423,14 +3421,16 @@ class editWaitForInput(TouchDialog):
         
         self.operator=QComboBox()
         self.operator.setStyleSheet("font-size: 18px;")
-        self.operator.addItems(["  <", " ==", " !=", "  >"])
+        self.operator.addItems(["  <"," <=", " ==", " !=", " >=", "  >"])
 
         x=self.cmdline.split()[4]
         
         if x=="<":    self.operator.setCurrentIndex(0)
-        elif x=="==": self.operator.setCurrentIndex(1)
-        elif x=="!=": self.operator.setCurrentIndex(2)
-        elif x==">":  self.operator.setCurrentIndex(3)
+        elif x=="<=": self.operator.setCurrentIndex(1)
+        elif x=="==": self.operator.setCurrentIndex(2)
+        elif x=="!=": self.operator.setCurrentIndex(3)
+        elif x==">=": self.operator.setCurrentIndex(4)
+        elif x==">":  self.operator.setCurrentIndex(5)
         
         k5.addWidget(self.operator)
 
@@ -4145,14 +4145,16 @@ class editIfVar(TouchDialog):
         
         self.operator=QComboBox()
         self.operator.setStyleSheet("font-size: 18px;")
-        self.operator.addItems(["  <", " ==", " !=", "  >"])
+        self.operator.addItems(["  <", " <=", " ==", " !=", " >=", "  >"])
 
         x=self.cmdline.split()[2]
         
         if x=="<":    self.operator.setCurrentIndex(0)
-        elif x=="==": self.operator.setCurrentIndex(1)
-        elif x=="!=": self.operator.setCurrentIndex(2)
-        elif x==">":  self.operator.setCurrentIndex(3)
+        elif x=="<=": self.operator.setCurrentIndex(1)
+        elif x=="==": self.operator.setCurrentIndex(2)
+        elif x=="!=": self.operator.setCurrentIndex(3)
+        elif x==">=": self.operator.setCurrentIndex(4)
+        elif x==">":  self.operator.setCurrentIndex(5)
         
         self.layout.addWidget(self.operator)
 
@@ -4278,7 +4280,7 @@ class editCalc(TouchDialog):
         
         self.operator=QComboBox()
         self.operator.setStyleSheet("font-size: 18px;")
-        oplist=["+", "-", "*", "/", "mod", "exp", "root", "min", "max", "sin", "cos","&&","||","<","==","!=",">"]
+        oplist=["+", "-", "*", "/", "mod", "exp", "root", "min", "max", "sin", "cos","&&","||","<","<=","==","!=",">=",">"]
         self.operator.addItems(oplist)
         if self.cmdline.split()[3] in oplist:
             self.operator.setCurrentIndex(oplist.index(self.cmdline.split()[3]))

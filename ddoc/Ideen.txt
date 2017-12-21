@@ -1,0 +1,52 @@
+startIDE Ideensammlung
+======================
+Stand 21.12.2017
+
+
+1) Arrays
+
+- InitArray <name> <größe>
+- ToArray <Arrayname> <Index> <Wert/Variable> 
+- FromArray <Arrayname> <Index> <Variable>
+- Stat <array> <operator="min||max||mean||sigma"> <variable>
+
+2) IfTime & IfDate
+    --> im GUI integrieren, exec schon fertig
+
+3) Sound
+    --> für TXT im exec schon fertig, GUI fehlt
+    
+4) Grafik
+
+- Canvas <cmd="on||off||clear||log">
+- Plot <x> <y>
+- DrawTo <x> <y> <shape="line||rect||rectSolid||oval||ovalSolid">
+- Pen <r> <g> <b> 
+- Text <x> <y> <size> <text>
+- Scroll <dx> <dy>
+
+5) Shelf
+
+- Shelf <shelf> <cmd="install||remove||inventory">
+- Store <variable> Puts variable to shelf
+- Fetch <variable> <default> gets Variable from shelf. If not present in shelf, <default>
+- IfStored <variable> <tag> prüft, ob Variable im shelf vorhanden
+- IfShelf <shelf> <tag> prüft, ob <shelf> auf dem TXT existiert
+- Discard <variable> Remove variable from shelf
+- ListShelves Listet alle shelves auf
+
+6) FromSys
+
+- FromSys <variable> <cmd="Day||Month||Year||Hour||Minute||Second">
+... more to be defined
+
+7) Menustruktur
+
+- Module Export ---> löscht Modul nach Speichern aus dem Programmcode ---> Call xxx wird autom. durch CallExt xxx ersetzt.
+- Module Save   ---> speichert Modul, ohne es aus dem Code zu löschen...
+
+8) FromRIIR
+    --> im exec schon fertig
+
+9) FromRemote <device="TXT-IR||USB"> <axis|button> <variable>
+
