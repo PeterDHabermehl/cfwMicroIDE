@@ -540,6 +540,7 @@ class execThread(QThread):
         elif stack[0]== "IfTimer":  self.cmdIfTimer(stack)
         elif stack[0]== "IfTime":   self.cmdIfTime(stack)
         elif stack[0]== "IfDate":   self.cmdIfDate(stack)
+        elif stack[0]== "QueryNow": self.cmdQueryNow(stack)
         elif stack[0]== "Interrupt": self.cmdInterrupt(stack)
         elif stack[0]== "Jump":     self.cmdJump(stack)
         elif stack[0]== "LoopTo":   self.cmdLoopTo(stack)
@@ -1230,7 +1231,10 @@ class execThread(QThread):
                 self.msgOut("IfDate jump tag not found!")
                 self.halt=True
             else:
-                self.count=n   
+                self.count=n 
+                
+    def cmdQueryNow(self, stack):
+        self.cmdPrint("Now: "+time.strftime("%Y-%m-%d_%H:%M:%S"))
                 
     def cmdJump(self,stack):
         n=-1
@@ -5634,7 +5638,8 @@ class FtcGuiApplication(TouchApplication):
                              QCoreApplication.translate("addcodeline","TimerQuery"),
                              QCoreApplication.translate("addcodeline","TimerClear"),
                              QCoreApplication.translate("addcodeline","IfTimer"),
-                             QCoreApplication.translate("addcodeline","Interrupt")
+                             QCoreApplication.translate("addcodeline","Interrupt"),
+                             QCoreApplication.translate("addcodeline","QueryNow")
                             ]
                           )
                     ftb.setTextSize(3)
@@ -5642,11 +5647,16 @@ class FtcGuiApplication(TouchApplication):
                     (t,p)=ftb.exec_()
                     if t:
                         if p==QCoreApplication.translate("addcodeline","Delay"):        self.acl_delay()
-                        elif p==QCoreApplication.translate("addcodeline","TimerQuery"): self.acl_timerquery()
-                        elif p==QCoreApplication.translate("addcodeline","TimerClear"): self.acl_timerclear()
-                        elif p==QCoreApplication.translate("addcodeline","IfTimer"):    self.acl_iftimer()
-                        elif p==QCoreApplication.translate("addcodeline","Interrupt"):  self.acl_interrupt()
-                            
+                        elif p==QCoreApplication.translate("addcodeline","TimerQuery"):
+                            self.acl_timerquery()
+                        elif p==QCoreApplication.translate("addcodeline","TimerClear"): #
+                            self.acl_timerclear()
+                        elif p==QCoreApplication.translate("addcodeline","IfTimer"):   
+                            self.acl_iftimer()
+                        elif p==QCoreApplication.translate("addcodeline","Interrupt"):  
+                            self.acl_interrupt()
+                        elif p==QCoreApplication.translate("addcodeline","QueryNow"):
+                            self.acl_queryNow()
                 elif p==QCoreApplication.translate("addcodeline","Stop"):       self.acl_stop()
         
         elif r==QCoreApplication.translate("addcodeline","Modules"):
@@ -5775,6 +5785,9 @@ class FtcGuiApplication(TouchApplication):
     
     def acl_interrupt(self):
         self.acl("Interrupt After 500 ?")
+    
+    def acl_queryNow(self):
+        self.acl("QueryNow")
         
     def acl_call(self):
         self.acl("Call ")
