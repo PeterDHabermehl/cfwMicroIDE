@@ -50,3 +50,7 @@ Stand 21.12.2017
 
 9) FromRemote <device="TXT-IR||USB"> <axis|button> <variable>
 
+10) FromLUT <Look-Up-Table> <Interp.> <Eingangswert> <Zielvariable>
+    Interpoliert den Wert für <Zielvariable> aus einer Kennlinie mit der in <interp> angegebenen Methode (NearestNeighbor, Linear, Cubic)
+    
+
