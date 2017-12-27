@@ -3192,6 +3192,7 @@ class editIfInput(TouchDialog):
         self.cmdline=cmdline
         self.taglist=taglist
         self.variables=varlist
+        self.parent=parent
         
     def exec_(self):
     
@@ -5027,15 +5028,15 @@ class FtcGuiApplication(TouchApplication):
         else:
             h=QVBoxLayout()
             
-        self.add = QPushButton("  +  ")
+        self.add = QPushButton(" + ")
         self.add.setStyleSheet("font-size: 20px;")
         self.add.clicked.connect(self.addCodeLine)
         
-        self.cop = QPushButton("#")
+        self.cop = QPushButton("Cp")
         self.cop.setStyleSheet("font-size: 20px;")
         self.cop.clicked.connect(self.copyCodeLine)        
         
-        self.rem = QDblPushButton("-")
+        self.rem = QDblPushButton(" - ")
         self.rem.setStyleSheet("font-size: 20px;")
         self.rem.doubleClicked.connect(self.remCodeLine)
         
