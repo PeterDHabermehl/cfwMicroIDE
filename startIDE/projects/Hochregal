@@ -1,0 +1,1 @@
+["# Hochregal", "Init Hochregal", "Tag start", "FromButtons Hochregal Einlagern Auslagern Inventur Ende", "IfVar Hochregal == 1 einlagern", "IfVar Hochregal == 2 auslagern", "IfVar Hochregal == 3 inventur", "Stop", "# Unterroutinen", "# ", "Tag einlagern", "# ...", "Jump start", "Tag auslagern", "# ...", "Jump start", "Tag inventur", "# ...", "Jump start"]
