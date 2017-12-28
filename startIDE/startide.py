@@ -145,6 +145,10 @@ class execThread(QThread):
         self.FTD=FTD
         self.parent=parent
         
+        self.parent.msgBack.connect(self.msgBack)
+        self.parent.IMsgBack.connect(self.IMsgBack)
+        self.parent.stop.connect(self.stop)
+        
     def run(self):
         
         self.parent.outputClicked.connect(self.goOn)
@@ -509,11 +513,11 @@ class execThread(QThread):
     
     def stop(self):
         self.halt=True
-        
-    def setMsg(self, num):
+    
+    def msgBack(self, num):
         self.msg=num
     
-    def setIMsg(self,var):
+    def IMsgBack(self,var):
         self.imesg=var
         
     def parseLine(self,line):
@@ -1681,22 +1685,29 @@ class execThread(QThread):
         self.msgOut(message)
         if self.logging:
             self.logfile.write(message+"\n")
-        time.sleep(0.005)
-    
+         
     def cmdMessage(self, rawline):
         self.msg=0
         self.showMessage.emit(rawline)
         while self.msg==0:
-            time.sleep(0.01)
+            time.sleep(0.001)
         self.msg=0
     
     def msgOut(self,message):
+        self.msg=0
         self.updateText.emit(message)
+        while self.msg==0:
+            time.sleep(0.001)
+            self.parent.processEvents()  
+        self.msg=0
         
     def clrOut(self):
+        self.msg=0
         self.clearText.emit()
-        time.sleep(0.005)
-
+        while self.msg==0:
+            time.sleep(0.001)
+            self.parent.processEvents()   
+        self.msg=0
 #
 #
 # GUI classes for editing command lines
@@ -2919,7 +2930,7 @@ class editLoopTo(TouchDialog):
         a=self.value.text()
         t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Number"),a,None).exec_()
         try:
-            t=str(max(min(int(t),99999),0))
+            t=str(max(min(int(t),99999),1))
         except:
             t=a
         self.value.setText(t)
@@ -4911,6 +4922,9 @@ class editFromButtons(TouchDialog):
 
 class FtcGuiApplication(TouchApplication):
     outputClicked=pyqtSignal(int)
+    msgBack=pyqtSignal(int)
+    IMsgBack=pyqtSignal(str)
+    stop=pyqtSignal()
     
     def __init__(self, args):
         TouchApplication.__init__(self, args)
@@ -5525,8 +5539,7 @@ class FtcGuiApplication(TouchApplication):
                 self.et.requestBtn.connect(self.requestButton)
                 self.et.start() 
             else:
-                self.et.stop()
-                self.et.wait()
+                self.stop.emit()
             
             self.processEvents()
 
@@ -5537,9 +5550,12 @@ class FtcGuiApplication(TouchApplication):
         self.output.addItem(message)
         if self.output.count()>255: void=self.output.takeItem(0)
         self.output.scrollToBottom()
-    
+        self.msgBack.emit(1)
+        
     def clearText(self):
         self.output.clear()
+        self.output.scrollToBottom()
+        self.msgBack.emit(1)
     
     def execThreadFinished(self):
         self.starter.setText(QCoreApplication.translate("main","Close log"))
@@ -5554,12 +5570,12 @@ class FtcGuiApplication(TouchApplication):
         t.setBtnTextSize(2)
         t.setPosButton(msg[1])
         (v1,v2)=t.exec_()       
-        self.et.setMsg(1)
+        self.msgBack.emit(1)
     
     def requestKeyboard(self, stack, title):
         t=TouchAuxKeyboard(title,str(stack), self.mainwindow).exec_()        
-        self.et.setIMsg(t)
-        self.et.setMsg(1)
+        self.IMsgBack.emit(t)
+        self.msgBack.emit(1)
     
     def requestDial(self, msg, stack, miv, mav, title):
         s,r=TouchAuxRequestInteger(
@@ -5568,10 +5584,10 @@ class FtcGuiApplication(TouchApplication):
             min(miv,mav),
             max(miv,mav),"Okay",self.mainwindow).exec_()   
         
-        self.et.setIMsg(stack)
-        if s: self.et.setIMsg(r)
+        if s: self.IMsgBack.emit(str(r))
+        else: self.IMsgBack.emit(str(stack))
         
-        self.et.setMsg(1)
+        self.msgBack.emit(1)
         
     def requestButton(self, title, msg, buttons):
         fta=TouchAuxMultibutton(title, self.mainwindow)
@@ -5581,10 +5597,10 @@ class FtcGuiApplication(TouchApplication):
         (s,r)=fta.exec_()      
         
         if s:
-            self.et.setIMsg(str(buttons.index(r)+1))
+            self.IMsgBack.emit(str(buttons.index(r)+1))
         else:
-            self.et.setIMsg(str(-1))
-        self.et.setMsg(1)
+            self.IMsgBack.emit("-1")
+        self.msgBack.emit(1)
         
     def setMainWindow(self, status):
         #true -> main window enabled 
