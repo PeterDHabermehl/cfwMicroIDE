@@ -477,7 +477,7 @@ class execThread(QThread):
         
         if not self.halt: self.msgOut("<End>")
         else: 
-            if self.cce: self.msgOut("CompleteConfusionError\n in line "+str(count-1)+"\n"+self.codeList[self.count-1])
+            if self.cce: self.msgOut("CompleteConfusionError\nin line "+str(self.count-1)+":\n"+self.codeList[self.count-1])
             self.msgOut("<Break>")
         
         try:
@@ -1197,17 +1197,21 @@ class execThread(QThread):
         
         diff=(time.time()-self.timestamp)*1000
         
-        if (stack[1]=="<" and diff<v) or (stack[1]==">" and diff>v):
-            n=-1
-            for line in self.jmpTable:
-                if stack[3]==line[0]: n=line[1]-1
+        try:
+            if (stack[1]=="<" and diff<v) or (stack[1]==">" and diff>v):
+                n=-1
+                for line in self.jmpTable:
+                    if stack[3]==line[0]: n=line[1]-1
 
-            if n==-1:
-                self.msgOut("IfTimer jump tag not found!")
-                self.halt=True
-            else:
-                self.count=n
-                
+                if n==-1:
+                    self.msgOut("IfTimer jump tag not found!")
+                    self.halt=True
+                else:
+                    self.count=n
+        except:
+            self.cce=True
+            self.halt=True
+            
     def cmdIfTime(self, stack):
         day=time.strftime("%H %M %S").split()
         
@@ -3805,7 +3809,7 @@ class editIfTimer(TouchDialog):
 
 class editInterrupt(TouchDialog):
     def __init__(self, cmdline, modlist, vari, parent=None):
-        TouchDialog.__init__(self, QCoreApplication.translate("ecl","Calc"), parent)
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","Interrupt"), parent)
         
         self.cmdline=cmdline
         self.variables=vari
@@ -4543,7 +4547,7 @@ class editFromKeypad(TouchDialog):
         if self.cmdline.split()[1] in self.variables:
             self.target.setCurrentIndex(self.variables.index(self.cmdline.split()[1]))
         else:
-            self.operator.setCurrentIndex(0)
+            self.target.setCurrentIndex(0)
 
         self.layout.addWidget(self.target)
         
@@ -5735,7 +5739,7 @@ class FtcGuiApplication(TouchApplication):
                 elif p==QCoreApplication.translate("addcodeline","Jump"):       self.acl_jump()
                 elif p==QCoreApplication.translate("addcodeline","LoopTo"):     self.acl_loopTo()
                 elif p==QCoreApplication.translate("addcodeline","Time"):
-                    ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Controls"), self.mainwindow)
+                    ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Time"), self.mainwindow)
                     ftb.setButtons([ QCoreApplication.translate("addcodeline","Delay"),
                              QCoreApplication.translate("addcodeline","TimerQuery"),
                              QCoreApplication.translate("addcodeline","TimerClear"),
