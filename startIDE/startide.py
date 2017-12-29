@@ -438,7 +438,7 @@ class execThread(QThread):
                     elif txt_it[i]==2: self.txt_i[i]=self.TXT.resistor(i+1)
                     elif txt_it[i]==3: self.txt_i[i]=self.TXT.voltage(i+1)
                     elif txt_it[i]==4: self.txt_i[i]=self.TXT.ultrasonic(i+1)
-                    self.txt.updateWait()
+                    self.TXT.updateWait()
                 if i<4:
                     if txt_m[i]: self.txt_m[i]=self.TXT.motor(i+1)
                 
