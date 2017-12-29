@@ -1697,7 +1697,7 @@ class execThread(QThread):
         self.msg=0
         self.updateText.emit(message)
         while self.msg==0:
-            time.sleep(0.001)
+            #time.sleep(0.001)
             self.parent.processEvents()  
         self.msg=0
         
@@ -1705,7 +1705,7 @@ class execThread(QThread):
         self.msg=0
         self.clearText.emit()
         while self.msg==0:
-            time.sleep(0.001)
+            #time.sleep(0.001)
             self.parent.processEvents()   
         self.msg=0
 #

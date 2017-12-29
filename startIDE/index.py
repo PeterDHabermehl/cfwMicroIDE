@@ -249,7 +249,10 @@ def csvconvert(name:str):
                 if varlist[i][0]==stack[0]: found=i
             
             if found>-1:
-                varlist[found][1].write(str(stack[1])+"\n")
+                if len(stack)>1:
+                    varlist[found][1].write(str(stack[1])+"\n")
+                else:
+                    varlist[found][1].write("-\n")
     f.close()
     
     for v in varlist:
