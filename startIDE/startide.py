@@ -425,6 +425,7 @@ class execThread(QThread):
                     (self.TXT.C_SWITCH, self.TXT.C_DIGITAL ) ]
             self.TXT.setConfig(M, I)
             self.TXT.updateConfig()
+            self.TXT.updateWait()
             self.txt_i=[0,0,0,0,0,0,0,0]
             self.txt_m=[0,0,0,0]
             self.txt_o=[0,0,0,0,0,0,0,0]
@@ -437,6 +438,7 @@ class execThread(QThread):
                     elif txt_it[i]==2: self.txt_i[i]=self.TXT.resistor(i+1)
                     elif txt_it[i]==3: self.txt_i[i]=self.TXT.voltage(i+1)
                     elif txt_it[i]==4: self.txt_i[i]=self.TXT.ultrasonic(i+1)
+                    self.txt.updateWait()
                 if i<4:
                     if txt_m[i]: self.txt_m[i]=self.TXT.motor(i+1)
                 
@@ -1697,16 +1699,18 @@ class execThread(QThread):
         self.msg=0
         self.updateText.emit(message)
         while self.msg==0:
+            pass
             #time.sleep(0.001)
-            self.parent.processEvents()  
+            #self.parent.processEvents()  
         self.msg=0
         
     def clrOut(self):
         self.msg=0
         self.clearText.emit()
         while self.msg==0:
+            pass
             #time.sleep(0.001)
-            self.parent.processEvents()   
+            #self.parent.processEvents()   
         self.msg=0
 #
 #
