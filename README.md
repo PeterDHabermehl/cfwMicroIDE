@@ -18,6 +18,6 @@ Although it is pysically possible to connect more than one interface, startIDE w
 
 When run on ft TXT controller, it is possible to use TXT and a connected Robo family device in parallel.
 
-A german user guide (Handbuch) is available: [ddoc/Manual_100_de.pdf](ddoc/Manual_100_de_prelim.pdf)
+A german user guide (Handbuch) is available: [ddoc/Manual_100_de.pdf](ddoc/Manual_100_de.pdf)
 
-See [ddoc/FunctionList.ods](ddoc/FunctionList.ods) for a list of functions implemented/planned.
+See [ddoc/ReferenceSheet](ddoc/ReferenceSheet.pdf) for a list of functions implemented.
