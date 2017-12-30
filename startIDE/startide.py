@@ -1908,13 +1908,15 @@ class editIfInputDig(TouchDialog):
         self.tags=QComboBox()
         self.tags.setStyleSheet("font-size: 20px;")
         self.tags.addItems(self.taglist)
-
+        
         try:
-            if self.cmdline.split()[4] in self.taglist:
-                for i in range(self.tags.count()):
-                    if self.cmdline.split()[4]==self.tags.item(i).text(): self.tags.setCurrentIndex(i)
+            t=0
+            for tag in self.taglist:
+               if self.taglist[t]==self.cmdline.split()[4]: self.tags.setCurrentIndex(t)
+               t=t+1
         except:
             self.tags.setCurrentIndex(0)
+
             
         self.layout.addWidget(self.tags)
         self.layout.addStretch()

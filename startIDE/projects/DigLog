@@ -1,0 +1,1 @@
+["# new", "Interrupt Every 100 I", "TimerClear", "Log 1", "Tag A", "Clear", "TimerQuery", "QueryIn TXT 1 S I1:", "Delay 25", "Jump A", "Module I", "IfInDig TXT 2 False B", "Print Ende", "Log 0", "Stop", "Tag B", "MEnd"]
