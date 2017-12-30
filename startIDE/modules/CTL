@@ -1,1 +1,0 @@
-["Module CTL", "Output FTD 3 300", "Tag OBEN", "FromIn FTD 1 R R_Foto", "QueryVar R_Foto", "Calc R_Foto R_Foto * 512", "Calc PWM R_Foto / 65535", "Calc PWM 512 min PWM", "Calc PWM 512 - PWM", "IfVar PWM > 100 MOTOR", "Init PWM 0", "Tag MOTOR", "QueryVar PWM", "Motor FTD 1 l PWM", "Delay 250", "Clear", "Jump OBEN", "MEnd"]
