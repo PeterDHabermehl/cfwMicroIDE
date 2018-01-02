@@ -501,7 +501,7 @@ class execThread(QThread):
         
         if self.FTD!=None:
             for i in range(0,8):
-                self.FTD.comm("output_set O"+str(i)+" 1 0")
+                self.FTD.comm("output_set O"+str(i)+" 2 0")
         
         self.execThreadFinished.emit()
     
@@ -1007,7 +1007,10 @@ class execThread(QThread):
             elif stack[1]=="TXT":
                 self.txt_o[int(stack[2])-1].setLevel(v)
             elif stack[1]=="FTD":
-                self.FTD.comm("output_set O"+stack[2]+" 1 "+str(v))   
+                if v>0:
+                    self.FTD.comm("output_set O"+stack[2]+" 1 "+str(v)) 
+                else:
+                    self.FTD.comm("output_set O"+stack[2]+" 2 0")
         except:
             self.halt=True
             self.cce=True 
