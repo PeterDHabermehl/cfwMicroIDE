@@ -484,6 +484,7 @@ class execThread(QThread):
                 self.parent.processEvents()
         except:
             self.cce=True
+            self.halt=True
         
         if not self.halt: self.msgOut("<End>")
         else: 
