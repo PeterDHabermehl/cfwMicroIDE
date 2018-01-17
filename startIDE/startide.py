@@ -12,6 +12,7 @@ import random, math
 from datetime import datetime
 
 import translator
+from PyQt4 import QtCore, QtGui
 
 try:
     import ftduino_direct as ftd
@@ -29,6 +30,7 @@ hostdir = os.path.dirname(os.path.realpath(__file__)) + "/"
 projdir = hostdir + "projects/"
 moddir  = hostdir + "modules/"
 logdir  = hostdir + "logfiles/"
+pixdir  = hostdir + "pixmaps/"
 
 if not os.path.exists(projdir):
     os.mkdir(projdir)
@@ -131,6 +133,7 @@ class execThread(QThread):
     requestKeyboard=pyqtSignal(int, str)
     requestDial=pyqtSignal(str, int, int, int, str)
     requestBtn=pyqtSignal(str, str, list)
+    canvasSig=pyqtSignal(str)
     
     def __init__(self, codeList, output, starter, RIF,TXT,FTD, parent):
         QThread.__init__(self, parent)
@@ -488,7 +491,7 @@ class execThread(QThread):
         
         if not self.halt: self.msgOut("<End>")
         else: 
-            if self.cce: self.msgOut("CompleteConfusionError\nin line "+str(self.count-1)+":\n"+self.codeList[self.count-1])
+            if self.cce: self.msgOut("CompleteConfusionError\nin line "+str(self.count)+":\n"+self.codeList[self.count])
             self.msgOut("<Break>")
         
         try:
@@ -586,6 +589,8 @@ class execThread(QThread):
         elif stack[0]== "Calc":     self.cmdCalc(stack)
         elif stack[0]== "IfVar":    self.cmdIfVar(stack)
         elif stack[0]== "Tag":      pass
+        elif stack[0]== "Canvas":   self.cmdCanvas(stack)
+        
         else:
             self.cmdPrint("DontKnowWhatToDo\nin line:\n"+line)
             self.halt=True
@@ -624,6 +629,9 @@ class execThread(QThread):
             self.interrupt=time.time()+self.interruptTime
             self.interruptCommand="Call "+stack[3]+" 1"
              
+    def cmdCanvas(self, stack):
+       self.canvasSig.emit(stack[1]) 
+    
     def cmdInit(self,a):
         if len(a)<3: a.append("0")
         cc=0
@@ -5007,12 +5015,19 @@ class FtcGuiApplication(TouchApplication):
         else:
             l3.addWidget(self.starter)
             l.addLayout(l2)
-
+ 
             
         self.centralwidget.setLayout(l)
         self.mainwindow.setCentralWidget(self.centralwidget)
         
         self.mainwindow.titlebar.close.clicked.connect(self.closed)
+
+        canvasSize=min(self.mainwindow.width(),self.mainwindow.height())
+        self.canvas=QLabel(self.mainwindow)
+        self.canvas.setGeometry(0, 0, canvasSize, canvasSize)        
+        #self.canvas.setPixmap(QPixmap(pixdir+"pixmap.png"))
+        self.canvas.setPixmap(QPixmap(canvasSize, canvasSize))
+        self.canvas.hide()
         
         self.mainwindow.show()
         try:
@@ -5429,12 +5444,15 @@ class FtcGuiApplication(TouchApplication):
         self.starter.setEnabled(False)
         self.menu.setEnabled(False)
         self.mainwindow.titlebar.menubut.hide()
+        #self.mainwindow.titlebar.hide()
         self.starter.setDisabled(True)
         self.processEvents()
         
         if self.etf:
+            self.canvas.hide()
             self.setMainWindow(True)
             self.mainwindow.titlebar.menubut.show()
+            #self.mainwindow.titlebar.show()
             self.menu.setEnabled(True)
             self.etf=False
             self.start=False
@@ -5452,6 +5470,7 @@ class FtcGuiApplication(TouchApplication):
                 self.et.requestKeyboard.connect(self.requestKeyboard)
                 self.et.requestDial.connect(self.requestDial)
                 self.et.requestBtn.connect(self.requestButton)
+                self.et.canvasSig.connect(self.canvasSig)
                 self.et.start() 
             else:
                 self.stop.emit()
@@ -5476,6 +5495,34 @@ class FtcGuiApplication(TouchApplication):
         self.starter.setText(QCoreApplication.translate("main","Close log"))
         self.etf=True
         
+    def canvasSig(self, stack):
+        if stack=="show": self.canvas.show()
+        elif stack=="hide": self.canvas.hide()
+        elif stack=="square":
+            canvasSize=min(self.mainwindow.width(),self.mainwindow.height())
+            self.canvas.setGeometry(0, 0, canvasSize, canvasSize)
+            self.canvas.setPixmap(QPixmap(canvasSize, canvasSize))
+        elif stack=="full":
+            self.canvas.setGeometry(0, 0, self.mainwindow.width(), self.mainwindow.height())
+            self.canvas.setPixmap(self.mainwindow.width(), self.mainwindow.height())
+        elif stack=="clear":
+            self.canvas.setPixmap(QPixmap(self.mainwindow.width(), self.mainwindow.height()))
+            pm=self.canvas.pixmap() #QPixmap(self.canvas.width(), self.canvas.height())
+            p=QPainter()
+            p.begin(pm)
+            p.setPen(QtGui.QColor(255, 0, 0, 0))
+            p.setBackgroundMode(0)
+            p.eraseRect(0,0,pm.width(),pm.height())
+            p.end()
+        elif stack=="plot":
+            pm=self.canvas.pixmap() #QPixmap(self.canvas.width(), self.canvas.height())
+            p=QPainter()
+            p.begin(pm)
+            p.setPen(QtGui.QColor(255, 0, 0, 127))
+            p.drawEllipse(120,120,60,30)
+            p.end()
+            #self.canvas.setPixmap(pm)
+            
     def messageBox(self, stack):
         msg=stack.split("'")
         t=TouchMessageBox(QCoreApplication.translate("exec","Message"),self.mainwindow)
