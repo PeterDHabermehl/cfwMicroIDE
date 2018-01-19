@@ -1120,7 +1120,7 @@ class execThread(QThread):
         
         try:
             if stack[2]=="R":
-                stack[1]=random.randint(0,v)
+                v=random.randint(0,v)
         except:
             pass
             
