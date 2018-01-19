@@ -40,7 +40,7 @@ if not os.path.exists(logdir):
     os.mkdir(logdir)
     
 try:
-    with open(hostdir+"manifest","r") as f:
+    with open(hostdir+"manifest","r", encoding="utf-8") as f:
         r=f.readline()
         while not "version" in r:
           r=f.readline()
