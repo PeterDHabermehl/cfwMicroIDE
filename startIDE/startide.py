@@ -858,7 +858,7 @@ class execThread(QThread):
             elif stack[3]=="D":
                 v=str(self.txt_i[int(stack[2])-1].distance())
             elif stack[3]=="C":
-                v=str(self.txt.getCurrentCounterValue(int(stack[2]-1)))
+                v=str(self.TXT.getCurrentCounterValue(int(stack[2]-1)))
         elif stack[1]== "FTD":
             if stack[3]=="S":
                 v=self.FTD.comm("input_get i"+stack[2])
@@ -932,19 +932,19 @@ class execThread(QThread):
                 v=str(self.RIF.Digital(int(stack[2])))
             elif stack[3]=="V":
                 if stack[2]=="1":
-                    tx=str(self.RIF.GetA1())*10
+                    v=str(self.RIF.GetA1())*10
                 elif stack[2]=="2":
-                    tx=str(self.RIF.GetA2())*10
+                    v=str(self.RIF.GetA2())*10
             elif stack[3]=="R":
                 if stack[2]=="X":
-                    tx=str(self.RIF.GetAX())
+                    v=str(self.RIF.GetAX())
                 elif stack[2]=="Y":
-                    tx=str(self.RIF.GetAY())
+                    v=str(self.RIF.GetAY())
             elif stack[3]=="D":
                 if stack[2]=="1":
-                    tx=str(self.RIF.GetD1())
+                    v=str(self.RIF.GetD1())
                 elif stack[2]=="2":
-                    tx=str(self.RIF.GetD2())
+                    v=str(self.RIF.GetD2())
             elif stack[3]=="C":
                 tx="Not yet implemented"                
         elif stack[1]== "TXT":
@@ -958,7 +958,7 @@ class execThread(QThread):
             elif stack[3]=="D":
                 v=str(self.txt_i[int(stack[2])-1].distance())
             elif stack[3]=="C":
-                tx="Not yet implemented"
+                v=str(self.TXT.getCurrentCounterValue(int(stack[2]-1)))
         elif stack[1]== "FTD":
             if stack[3]=="S":
                 v=self.FTD.comm("input_get i"+stack[2])
@@ -969,7 +969,7 @@ class execThread(QThread):
             elif stack[3]=="D":
                 v=self.FTD.comm("ultrasonic_get")
             elif stack[3]=="C":
-                tx="Not yet implemented"
+                v=self.FTD.comm("counter_get c"+stack[2])
         
         self.cmdPrint(tx+" "+v)
     
@@ -1438,7 +1438,7 @@ class execThread(QThread):
                 elif stack[3]=="D":
                     v=float(self.txt_i[int(stack[2])-1].distance())
                 elif stack[3]=="C":
-                    v=str(self.txt.getCurrentCounterValue(int(stack[2]-1)))
+                    v=str(self.TXT.getCurrentCounterValue(int(stack[2]-1)))
             elif stack[1]== "FTD":
                 if stack[3]=="S":
                     v=float(self.FTD.comm("input_get i"+stack[2]))
@@ -1541,7 +1541,7 @@ class execThread(QThread):
             elif stack[3]=="D":
                 v=float(self.txt_i[int(stack[2])-1].distance())
             elif stack[3]=="C":
-                v=str(self.txt.getCurrentCounterValue(int(stack[2]-1)))
+                v=str(self.TXT.getCurrentCounterValue(int(stack[2]-1)))
         elif stack[1]== "FTD":
             if stack[3]=="S":
                 v=float(self.FTD.comm("input_get i"+stack[2]))
@@ -3162,8 +3162,8 @@ class editQueryIn(TouchDialog):
             self.iType.addItems([QCoreApplication.translate("ecl","switch"),
                                 QCoreApplication.translate("ecl","voltage"),
                                 QCoreApplication.translate("ecl","resistance"),
-                                QCoreApplication.translate("ecl","distance")]) #,
-                                #QCoreApplication.translate("ecl","counter")])
+                                QCoreApplication.translate("ecl","distance"),
+                                QCoreApplication.translate("ecl","counter")])
         self.iType.setCurrentIndex(m)
 
         m=self.port.currentIndex()
@@ -5570,16 +5570,17 @@ class FtcGuiApplication(TouchApplication):
         self.etf=True
         
     def canvasSig(self, stack):
-        if stack=="show": self.canvas.show()
-        elif stack=="hide": self.canvas.hide()
-        elif stack=="square":
+        s=stack.split()
+        if s[0]=="show": self.canvas.show()
+        elif s[0]=="hide": self.canvas.hide()
+        elif s[0]=="square":
             canvasSize=min(self.mainwindow.width(),self.mainwindow.height())
             self.canvas.setGeometry(0, 0, canvasSize, canvasSize)
             self.canvas.setPixmap(QPixmap(canvasSize, canvasSize))
-        elif stack=="full":
+        elif s[0]=="full":
             self.canvas.setGeometry(0, 0, self.mainwindow.width(), self.mainwindow.height())
             self.canvas.setPixmap(QPixmap(self.mainwindow.width(), self.mainwindow.height()))
-        elif stack=="clear":
+        elif s[0]=="clear":
             self.canvas.setPixmap(QPixmap(self.mainwindow.width(), self.mainwindow.height()))
             pm=self.canvas.pixmap() #QPixmap(self.canvas.width(), self.canvas.height())
             p=QPainter()
@@ -5588,14 +5589,48 @@ class FtcGuiApplication(TouchApplication):
             p.setBackgroundMode(0)
             p.drawRect(0,0,pm.width(),pm.height())
             p.end()
-        elif stack=="plot":
-            pm=self.canvas.pixmap() #QPixmap(self.canvas.width(), self.canvas.height())
+        elif s[0]=="plot":
+            pm=self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
-            p.setPen(QtGui.QColor(255, 0, 0, 127))
-            p.drawEllipse(120,120,60,30)
+            p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
+            self.xpos=int(s[1])
+            self.ypos=int(s[2])
+            p.drawPoint(self.xpos,self.ypos)
             p.end()
-            #self.canvas.setPixmap(pm)
+        elif s[0]=="lineTo":
+            pm=self.canvas.pixmap()
+            p=QPainter()
+            p.begin(pm)
+            p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
+            ax=self.xpos
+            ay=self.ypos
+            self.xpos=int(s[1])
+            self.ypos=int(s[2])
+            p.drawLine(ax,ay,self.xpos,self.ypos)
+            p.end()  
+        elif s[0]=="rectTo":
+            pm=self.canvas.pixmap()
+            p=QPainter()
+            p.begin(pm)
+            p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
+            ax=self.xpos
+            ay=self.ypos
+            self.xpos=int(s[1])
+            self.ypos=int(s[2])
+            p.drawRect(ax,ay,self.xpos-ax,self.ypos-ay)
+            p.end() 
+        elif s[0]=="boxTo":
+            pm=self.canvas.pixmap()
+            p=QPainter()
+            p.begin(pm)
+            p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
+            ax=self.xpos
+            ay=self.ypos
+            self.xpos=int(s[1])
+            self.ypos=int(s[2])
+            p.fillRect(ax,ay,self.xpos-ax,self.ypos-ay)
+            p.end() 
             
     def messageBox(self, stack):
         msg=stack.split("'")
