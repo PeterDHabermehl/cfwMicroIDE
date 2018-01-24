@@ -749,7 +749,11 @@ class execThread(QThread):
         elif op=="sin": res=int(v1*math.sin(math.radians(v2)))
         elif op=="cos": res=int(v1*math.cos(math.radians(v2)))  
         elif op=="random": res=random.randint(min(v1,v2),max(v1,v2))
-        elif op=="mean":   res=int(((float(v1)+float(v2))   /2)+0.500)
+        elif op=="mean":
+            res=(float(v1)+float(v2))/2
+            if res > 0: res = int(res+0.5)
+            elif res < 0: res = int (res-0.5)
+            else: res =0
         elif op=="&&" and (v1!=0) and (v2!=0): res=1 
         elif op=="||" and ((v1!=0) or (v2!=0)): res=1
         elif op=="<"  and (v1<v2): res=1  
@@ -5574,7 +5578,7 @@ class FtcGuiApplication(TouchApplication):
             self.canvas.setPixmap(QPixmap(canvasSize, canvasSize))
         elif stack=="full":
             self.canvas.setGeometry(0, 0, self.mainwindow.width(), self.mainwindow.height())
-            self.canvas.setPixmap(self.mainwindow.width(), self.mainwindow.height())
+            self.canvas.setPixmap(QPixmap(self.mainwindow.width(), self.mainwindow.height()))
         elif stack=="clear":
             self.canvas.setPixmap(QPixmap(self.mainwindow.width(), self.mainwindow.height()))
             pm=self.canvas.pixmap() #QPixmap(self.canvas.width(), self.canvas.height())
@@ -5582,7 +5586,7 @@ class FtcGuiApplication(TouchApplication):
             p.begin(pm)
             p.setPen(QtGui.QColor(255, 0, 0, 0))
             p.setBackgroundMode(0)
-            p.eraseRect(0,0,pm.width(),pm.height())
+            p.drawRect(0,0,pm.width(),pm.height())
             p.end()
         elif stack=="plot":
             pm=self.canvas.pixmap() #QPixmap(self.canvas.width(), self.canvas.height())
