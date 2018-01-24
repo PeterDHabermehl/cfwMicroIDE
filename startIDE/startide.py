@@ -752,7 +752,7 @@ class execThread(QThread):
         elif op=="mean":
             res=(float(v1)+float(v2))/2
             if res > 0: res = int(res+0.5)
-            elif res < 0: res = int (res-0.5)
+            elif res < 0: res = int(res-0.5)
             else: res =0
         elif op=="&&" and (v1!=0) and (v2!=0): res=1 
         elif op=="||" and ((v1!=0) or (v2!=0)): res=1
