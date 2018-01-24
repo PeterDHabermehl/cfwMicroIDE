@@ -590,6 +590,7 @@ class execThread(QThread):
         elif stack[0]== "IfVar":    self.cmdIfVar(stack)
         elif stack[0]== "Tag":      pass
         elif stack[0]== "Canvas":   self.cmdCanvas(stack)
+        elif stack[0]== "CounterClear": self.cmdCounterClear(stack)
         
         else:
             self.cmdPrint("DontKnowWhatToDo\nin line:\n"+line)
@@ -717,6 +718,13 @@ class execThread(QThread):
             self.halt=True
             self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated")      
 
+    def cmdCounterClear(self, stack):
+        if stack[1]=="TXT":
+            self.TXT.incrCounterCmdId(int(stack[2])-1)
+        elif stack[1]=="FTD":
+            self.ftd.comm("counter_clear C"+stack[2])
+            
+            
     def cmdQueryVar(self, stack):
         v=self.getVal(stack[1])
         if not self.halt:
@@ -741,6 +749,7 @@ class execThread(QThread):
         elif op=="sin": res=int(v1*math.sin(math.radians(v2)))
         elif op=="cos": res=int(v1*math.cos(math.radians(v2)))  
         elif op=="random": res=random.randint(min(v1,v2),max(v1,v2))
+        elif op=="mean":   res=int(((float(v1)+float(v2))   /2)+0.500)
         elif op=="&&" and (v1!=0) and (v2!=0): res=1 
         elif op=="||" and ((v1!=0) or (v2!=0)): res=1
         elif op=="<"  and (v1<v2): res=1  
@@ -819,19 +828,19 @@ class execThread(QThread):
                 v=str(self.RIF.Digital(int(stack[2])))
             elif stack[3]=="V":
                 if stack[2]=="1":
-                    tx=str(self.RIF.GetA1())*10
+                    v=str(self.RIF.GetA1())*10
                 elif stack[2]=="2":
-                    tx=str(self.RIF.GetA2())*10
+                    v=str(self.RIF.GetA2())*10
             elif stack[3]=="R":
                 if stack[2]=="X":
-                    tx=str(self.RIF.GetAX())
+                    v=str(self.RIF.GetAX())
                 elif stack[2]=="Y":
-                    tx=str(self.RIF.GetAY())
+                    v=str(self.RIF.GetAY())
             elif stack[3]=="D":
                 if stack[2]=="1":
-                    tx=str(self.RIF.GetD1())
+                    v=str(self.RIF.GetD1())
                 elif stack[2]=="2":
-                    tx=str(self.RIF.GetD2())
+                    v=str(self.RIF.GetD2())
             elif stack[3]=="C":
                 tx="Not yet implemented"                
         elif stack[1]== "TXT":
@@ -845,7 +854,7 @@ class execThread(QThread):
             elif stack[3]=="D":
                 v=str(self.txt_i[int(stack[2])-1].distance())
             elif stack[3]=="C":
-                tx="Not yet implemented"
+                v=str(self.txt.getCurrentCounterValue(int(stack[2]-1)))
         elif stack[1]== "FTD":
             if stack[3]=="S":
                 v=self.FTD.comm("input_get i"+stack[2])
@@ -856,7 +865,7 @@ class execThread(QThread):
             elif stack[3]=="D":
                 v=self.FTD.comm("ultrasonic_get")
             elif stack[3]=="C":
-                tx="Not yet implemented"
+                v=self.FTD.comm("counter_get c"+stack[2])
         ### und noch der variable zuweisen...         
         cc=0
         for i in self.memory:
@@ -1425,7 +1434,7 @@ class execThread(QThread):
                 elif stack[3]=="D":
                     v=float(self.txt_i[int(stack[2])-1].distance())
                 elif stack[3]=="C":
-                    tx="Not yet implemented"
+                    v=str(self.txt.getCurrentCounterValue(int(stack[2]-1)))
             elif stack[1]== "FTD":
                 if stack[3]=="S":
                     v=float(self.FTD.comm("input_get i"+stack[2]))
@@ -1436,7 +1445,7 @@ class execThread(QThread):
                 elif stack[3]=="D":
                     v=float(self.FTD.comm("ultrasonic_get"))
                 elif stack[3]=="C":
-                    tx="Not yet implemented"
+                    v=self.FTD.comm("counter_get c"+stack[2])
         
             val=float(self.getVal(stack[5]))
             if self.halt: return
@@ -1528,7 +1537,7 @@ class execThread(QThread):
             elif stack[3]=="D":
                 v=float(self.txt_i[int(stack[2])-1].distance())
             elif stack[3]=="C":
-                tx="Not yet implemented"
+                v=str(self.txt.getCurrentCounterValue(int(stack[2]-1)))
         elif stack[1]== "FTD":
             if stack[3]=="S":
                 v=float(self.FTD.comm("input_get i"+stack[2]))
@@ -1539,7 +1548,7 @@ class execThread(QThread):
             elif stack[3]=="D":
                 v=float(self.FTD.comm("ultrasonic_get"))
             elif stack[3]=="C":
-                tx="Not yet implemented"
+                v=self.FTD.comm("counter_get c"+stack[2])
     
         val=float(self.getVal(stack[5]))
         if self.halt: return
@@ -1846,6 +1855,66 @@ class editIfInputDig(TouchDialog):
     
     def on_confirm(self):
         self.cmdline="IfInDig " +self.interface.currentText()+ " " + self.port.currentText()[2:] + " " + self.thd.currentText() + " " + self.tags.itemText(self.tags.currentIndex())
+        self.close()
+
+class editCounterClear(TouchDialog):
+    def __init__(self, cmdline, parent):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","CounterClear"), parent)
+        
+        self.cmdline=cmdline
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+
+        self.layout=QVBoxLayout()
+        
+        k1=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Device"))
+        l.setStyleSheet("font-size: 20px;")
+        
+        k1.addWidget(l)
+        
+        self.interface=QComboBox()
+        self.interface.setStyleSheet("font-size: 20px;")
+        self.interface.addItems(["TXT","FTD"])
+
+        if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(0)
+        if self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(1)
+
+        k1.addWidget(self.interface)
+        
+        
+        k2=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Port"))
+        l.setStyleSheet("font-size: 20px;")
+        k2.addWidget(l)
+        
+        self.port=QComboBox()
+        self.port.setStyleSheet("font-size: 20px;")
+        self.port.addItems(["C 1","C 2","C 3","C 4"])
+
+        self.port.setCurrentIndex(int(self.cmdline.split()[2])-1)
+        k2.addWidget(self.port)
+        
+        k9=QHBoxLayout()
+        k9.addLayout(k1)
+        k9.addStretch()
+        k9.addLayout(k2)
+        
+        self.layout.addLayout(k9)
+        self.layout.addStretch()
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="CounterClear " +self.interface.currentText()+ " " + self.port.currentText()[2:]
         self.close()
 
 class editOutput(TouchDialog):
@@ -3331,8 +3400,8 @@ class editIfInput(TouchDialog):
             self.iType.addItems([QCoreApplication.translate("ecl","switch"),
                                 QCoreApplication.translate("ecl","voltage"),
                                 QCoreApplication.translate("ecl","resistance"),
-                                QCoreApplication.translate("ecl","distance")])#,
-                                #QCoreApplication.translate("ecl","counter")])
+                                QCoreApplication.translate("ecl","distance"),
+                                QCoreApplication.translate("ecl","counter")])
         self.iType.setCurrentIndex(m)
 
         m=self.port.currentIndex()
@@ -3552,8 +3621,8 @@ class editWaitForInput(TouchDialog):
             self.iType.addItems([QCoreApplication.translate("ecl","switch"),
                                 QCoreApplication.translate("ecl","voltage"),
                                 QCoreApplication.translate("ecl","resistance"),
-                                QCoreApplication.translate("ecl","distance")])#,
-                                #QCoreApplication.translate("ecl","counter")])
+                                QCoreApplication.translate("ecl","distance"),
+                                QCoreApplication.translate("ecl","counter")])
         self.iType.setCurrentIndex(m)
 
         m=self.port.currentIndex()
@@ -4091,8 +4160,8 @@ class editFromIn(TouchDialog):
             self.iType.addItems([QCoreApplication.translate("ecl","switch"),
                                 QCoreApplication.translate("ecl","voltage"),
                                 QCoreApplication.translate("ecl","resistance"),
-                                QCoreApplication.translate("ecl","distance")]) #,
-                                #QCoreApplication.translate("ecl","counter")])
+                                QCoreApplication.translate("ecl","distance"),
+                                QCoreApplication.translate("ecl","counter")])
         self.iType.setCurrentIndex(m)
 
         m=self.port.currentIndex()
@@ -4307,7 +4376,7 @@ class editCalc(TouchDialog):
         
         self.operator=QComboBox()
         self.operator.setStyleSheet("font-size: 18px;")
-        oplist=["+", "-", "*", "/", "mod", "exp", "root", "min", "max", "sin", "cos", "random", "&&","||","<","<=","==","!=",">=",">"]
+        oplist=["+", "-", "*", "/", "mod", "exp", "root", "min", "max", "sin", "cos", "random", "mean", "&&","||","<","<=","==","!=",">=",">"]
         self.operator.addItems(oplist)
         if self.cmdline.split()[3] in oplist:
             self.operator.setCurrentIndex(oplist.index(self.cmdline.split()[3]))
@@ -5614,6 +5683,7 @@ class FtcGuiApplication(TouchApplication):
                              QCoreApplication.translate("addcodeline","WaitForInput"),
                              QCoreApplication.translate("addcodeline","IfInput"),
                              QCoreApplication.translate("addcodeline","QueryInput"),
+                             QCoreApplication.translate("addcodeline","CounterClear")
                             ]
                           )
             ftb.setTextSize(3)
@@ -5630,6 +5700,8 @@ class FtcGuiApplication(TouchApplication):
                     self.acl_ifInput()
                 elif p==QCoreApplication.translate("addcodeline","QueryInput"):
                     self.acl_queryIn()
+                elif p==QCoreApplication.translate("addcodeline","CounterClear"):
+                    self.acl_counterClear()
         elif r==QCoreApplication.translate("addcodeline","Outputs"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Outputs"), self.mainwindow)
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Output"),
@@ -5790,6 +5862,9 @@ class FtcGuiApplication(TouchApplication):
         except:
             pass
         
+    def acl_counterClear(self):
+        self.acl("CounterClear " + self.lastIF + " 1")
+    
     def acl_waitForInputDig(self):
         self.acl("WaitInDig " + self.lastIF + " 1 Raising 0")
     
@@ -5953,7 +6028,8 @@ class FtcGuiApplication(TouchApplication):
             s=self.proglist.item(i).text().split()
             if s[0]=="Init" and not (s[1] in vari): vari.append(s[1])
         
-        if   stack[0] == "Output":     itm=self.ecl_output(itm, vari)
+        if   stack[0] == "CounterClear": itm=self.ecl_counterClear(itm)
+        elif stack[0] == "Output":     itm=self.ecl_output(itm, vari)
         elif stack[0] == "Motor":      itm=self.ecl_motor(itm, vari)
         elif stack[0] == "MotorP":     itm=self.ecl_motorPulsewheel(itm, vari)
         elif stack[0] == "MotorE":     itm=self.ecl_motorEncoder(itm, vari)
@@ -5996,6 +6072,9 @@ class FtcGuiApplication(TouchApplication):
         except:
             pass
 
+    def ecl_counterClear(self, itm):
+        return editCounterClear(itm, self.mainwindow).exec_()
+    
     def ecl_output(self, itm, vari):
         return editOutput(itm,vari, self.mainwindow).exec_()
     
