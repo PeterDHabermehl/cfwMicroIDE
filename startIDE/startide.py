@@ -1437,7 +1437,7 @@ class execThread(QThread):
                 elif stack[3]=="D":
                     v=float(self.txt_i[int(stack[2])-1].distance())
                 elif stack[3]=="C":
-                    v=str(self.TXT.getCurrentCounterValue(int(stack[2])-1))
+                    v=float(self.TXT.getCurrentCounterValue(int(stack[2])-1))
             elif stack[1]== "FTD":
                 if stack[3]=="S":
                     v=float(self.FTD.comm("input_get i"+stack[2]))
@@ -1540,7 +1540,7 @@ class execThread(QThread):
             elif stack[3]=="D":
                 v=float(self.txt_i[int(stack[2])-1].distance())
             elif stack[3]=="C":
-                v=str(self.TXT.getCurrentCounterValue(int(stack[2])-1))
+                v=float(self.TXT.getCurrentCounterValue(int(stack[2])-1))
         elif stack[1]== "FTD":
             if stack[3]=="S":
                 v=float(self.FTD.comm("input_get i"+stack[2]))
