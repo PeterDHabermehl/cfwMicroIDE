@@ -835,9 +835,9 @@ class execThread(QThread):
                 v=str(self.RIF.Digital(int(stack[2])))
             elif stack[3]=="V":
                 if stack[2]=="1":
-                    v=str(self.RIF.GetA1())*10
+                    v=str(self.RIF.GetA1()*10)
                 elif stack[2]=="2":
-                    v=str(self.RIF.GetA2())*10
+                    v=str(self.RIF.GetA2()*10)
             elif stack[3]=="R":
                 if stack[2]=="X":
                     v=str(self.RIF.GetAX())
@@ -935,9 +935,9 @@ class execThread(QThread):
                 v=str(self.RIF.Digital(int(stack[2])))
             elif stack[3]=="V":
                 if stack[2]=="1":
-                    v=str(self.RIF.GetA1())*10
+                    v=str(self.RIF.GetA1()*10)
                 elif stack[2]=="2":
-                    v=str(self.RIF.GetA2())*10
+                    v=str(self.RIF.GetA2()*10)
             elif stack[3]=="R":
                 if stack[2]=="X":
                     v=str(self.RIF.GetAX())
@@ -5464,6 +5464,7 @@ class FtcGuiApplication(TouchApplication):
         
 
     def on_menu_interfaces(self):
+        global RIFSERIAL
         
         self.initIFs()
         
@@ -5483,10 +5484,25 @@ class FtcGuiApplication(TouchApplication):
         t.setText(text)
         t.setTextSize(1)
         t.setBtnTextSize(2)
-        t.setPosButton(QCoreApplication.translate("m_interfaces","Okay"))
+        t.setNegButton(QCoreApplication.translate("m_interfaces","Okay"))
+        t.setPosButton(QCoreApplication.translate("m_interfaces","Enable IIF"))
         (v1,v2)=t.exec_()  
-        
-        
+
+        if v2==QCoreApplication.translate("m_interfaces","Enable IIF"):
+            v2=""
+            text=QCoreApplication.translate("m_interfaces","Enabling IIF with any device other than an Intelligent Interface connected to '/dev/ttyUSB0' will crash startIDE.")
+            t=TouchMessageBox(QCoreApplication.translate("m_interfaces","Enable IIF"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(text)
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_interfaces","Cancel"))
+            t.setNegButton(QCoreApplication.translate("m_interfaces","Enable IIF"))
+            (v1,v2)=t.exec_()             
+            if v2==QCoreApplication.translate("m_interfaces","Enable IIF"):
+                RIFSERIAL="/dev/ttyUSB0"
+                self.initIFs()
+                
     def initIFs(self):
         # close, if open
         if self.RIF:
@@ -5494,11 +5510,16 @@ class FtcGuiApplication(TouchApplication):
             time.sleep(0.1)
             
         #init robo family
+        if RIFSERIAL!="":
+            self.RIF=RoboInterface(serialDevice=RIFSERIAL.encode(), SerialType=RoboInterface.FT_INTELLIGENT_IF)
+        else:
+            self.RIF=RoboInterface(bEnableDist=True)
         
-        if RIFSERIAL!="": self.RIF=RoboInterface(serialDevice=RIFSERIAL, SerialType=RoboInterface.FT_INTELLIGENT_IF)
-        else:   self.RIF=RoboInterface(bEnableDist=True)
+        s=""
+        if self.RIF.hasInterface(): s = self.RIF.GetDeviceTypeString()
         
-        if not self.RIF.hasInterface(): self.RIF=None
+        # print(self.RIF.IsConnected, s, len(s))
+        if s=="": self.RIF=None
 
         self.TXT=None
         try:
