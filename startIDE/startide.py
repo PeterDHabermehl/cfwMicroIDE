@@ -744,6 +744,14 @@ class execThread(QThread):
         elif op=="-": res=int(v1-v2)
         elif op=="*": res=int(v1*v2)
         elif op=="/": res=int(round(v1/v2))
+        elif op=="div": res=int(v1/v2)
+        elif op=="digit":
+            a=str(int(v2))
+            b=len(a)
+            if v1<=b:
+                res=int(a[(b-int(v1)):((b-int(v1))+1)])
+            else:
+                res=-1
         elif op=="mod": res=int(v1 % v2)
         elif op=="exp": res=int(v1 ** v2)
         elif op=="root": res=int(v2 ** (1/v1))
@@ -4383,7 +4391,7 @@ class editCalc(TouchDialog):
         
         self.operator=QComboBox()
         self.operator.setStyleSheet("font-size: 18px;")
-        oplist=["+", "-", "*", "/", "mod", "exp", "root", "min", "max", "sin", "cos", "random", "mean", "&&","||","<","<=","==","!=",">=",">"]
+        oplist=["+", "-", "*", "/", "div", "digit", "mod", "exp", "root", "min", "max", "sin", "cos", "random", "mean", "&&","||","<","<=","==","!=",">=",">"]
         self.operator.addItems(oplist)
         if self.cmdline.split()[3] in oplist:
             self.operator.setCurrentIndex(oplist.index(self.cmdline.split()[3]))
