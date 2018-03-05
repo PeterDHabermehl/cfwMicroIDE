@@ -20,7 +20,7 @@ except:
     FTDUINO_DIRECT=False
 
 try:
-    import rpi.gpio as gpio
+    import RPi.GPIO as gpio
     gpio.setmode(gpio.BOARD)
     gpio.setup(12, gpio.IN, pull_up_down = gpio.PUD_UP)
     gpio.setup(16, gpio.IN, pull_up_down = gpio.PUD_UP)
