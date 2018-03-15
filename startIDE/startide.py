@@ -496,7 +496,7 @@ class execThread(QThread):
         self.interrupt=-1
         self.timestamp=time.time()
         
-        try:
+        if 1: #try:
             while not self.halt and self.count<len(self.codeList):
                 line=self.codeList[self.count]
                 if self.trace: self.cmdPrint(str(self.count)+":"+line)
@@ -509,10 +509,10 @@ class execThread(QThread):
                     
                 self.count=self.count+1
                 self.parent.processEvents()
-        except:
+        else: #except:
             self.cce=True
             self.halt=True
-        
+                
         if not self.halt: self.msgOut("<End>")
         else: 
             if self.cce: self.msgOut("CompleteConfusionError\nin line "+str(self.count)+":\n"+self.codeList[self.count])
@@ -522,6 +522,8 @@ class execThread(QThread):
             if self.logging: self.logfile.close()
         except:
             pass
+        
+        self.cmdCanvas("Canvas hide")
         
         if self.RIF!=None:
             try:
@@ -618,7 +620,7 @@ class execThread(QThread):
         elif stack[0]== "Calc":     self.cmdCalc(stack)
         elif stack[0]== "IfVar":    self.cmdIfVar(stack)
         elif stack[0]== "Tag":      pass
-        elif stack[0]== "Canvas":   self.cmdCanvas(stack)
+        elif stack[0]== "Canvas":   self.cmdCanvas(line)
         elif stack[0]== "CounterClear": self.cmdCounterClear(stack)
         elif stack[0]== "RIFShift": self.RIFShift=int(stack[1])
         
@@ -660,8 +662,8 @@ class execThread(QThread):
             self.interrupt=time.time()+self.interruptTime
             self.interruptCommand="Call "+stack[3]+" 1"
              
-    def cmdCanvas(self, stack):
-       self.canvasSig.emit(stack[1]) 
+    def cmdCanvas(self, line):
+       self.canvasSig.emit(line) 
     
     def cmdInit(self,a):
         if len(a)<3: a.append("0")
@@ -1588,7 +1590,7 @@ class execThread(QThread):
                 elif stack[3]=="D":
                     v=float(self.FTD.comm("ultrasonic_get"))
                 elif stack[3]=="C":
-                    v=self.FTD.comm("counter_get c"+stack[2])
+                    v=float(self.FTD.comm("counter_get c"+stack[2]))
         
             val=float(self.getVal(stack[5]))
             if self.halt: return
@@ -1699,7 +1701,7 @@ class execThread(QThread):
             elif stack[3]=="D":
                 v=float(self.FTD.comm("ultrasonic_get"))
             elif stack[3]=="C":
-                v=self.FTD.comm("counter_get c"+stack[2])
+                v=float(self.FTD.comm("counter_get c"+stack[2]))
     
         val=float(self.getVal(stack[5]))
         if self.halt: return
@@ -6020,64 +6022,67 @@ class FtcGuiApplication(TouchApplication):
         
     def canvasSig(self, stack):
         s=stack.split()
-        if s[0]=="show": self.canvas.show()
-        elif s[0]=="hide": self.canvas.hide()
-        elif s[0]=="square":
+        self.pred=255
+        self.pgreen=255
+        self.pblue=255
+        if s[1]=="show": self.canvas.show()
+        elif s[1]=="hide": self.canvas.hide()
+        elif s[1]=="square":
             canvasSize=min(self.mainwindow.width(),self.mainwindow.height())
             self.canvas.setGeometry(0, 0, canvasSize, canvasSize)
             self.canvas.setPixmap(QPixmap(canvasSize, canvasSize))
-        elif s[0]=="full":
+        elif s[1]=="full":
             self.canvas.setGeometry(0, 0, self.mainwindow.width(), self.mainwindow.height())
             self.canvas.setPixmap(QPixmap(self.mainwindow.width(), self.mainwindow.height()))
-        elif s[0]=="clear":
-            self.canvas.setPixmap(QPixmap(self.mainwindow.width(), self.mainwindow.height()))
+        elif s[1]=="clear":
+            self.canvas.setPixmap(QPixmap(self.canvas.width(), self.canvas.height()))
             pm=self.canvas.pixmap() #QPixmap(self.canvas.width(), self.canvas.height())
             p=QPainter()
             p.begin(pm)
-            p.setPen(QtGui.QColor(255, 0, 0, 0))
-            p.setBackgroundMode(0)
-            p.drawRect(0,0,pm.width(),pm.height())
+            p.setPen(QtGui.QColor(0,0,0,255))
+            p.setBackgroundMode(Qt.TransparentMode)
+            p.fillRect(0,0,pm.width(),pm.height(),QtGui.QColor(50,125,195,255))
             p.end()
-        elif s[0]=="plot":
+        elif s[1]=="plot":
             pm=self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
-            self.xpos=int(s[1])
-            self.ypos=int(s[2])
+            self.xpos=int(s[2])
+            self.ypos=int(s[3])
             p.drawPoint(self.xpos,self.ypos)
             p.end()
-        elif s[0]=="lineTo":
+        elif s[1]=="lineTo":
             pm=self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
             ax=self.xpos
             ay=self.ypos
-            self.xpos=int(s[1])
-            self.ypos=int(s[2])
+            self.xpos=int(s[2])
+            self.ypos=int(s[3])
             p.drawLine(ax,ay,self.xpos,self.ypos)
             p.end()  
-        elif s[0]=="rectTo":
+        elif s[1]=="rectTo":
             pm=self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
             ax=self.xpos
             ay=self.ypos
-            self.xpos=int(s[1])
-            self.ypos=int(s[2])
+            self.xpos=int(s[2])
+            self.ypos=int(s[3])
             p.drawRect(ax,ay,self.xpos-ax,self.ypos-ay)
             p.end() 
-        elif s[0]=="boxTo":
+        elif s[1]=="boxTo":
             pm=self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
             ax=self.xpos
             ay=self.ypos
-            self.xpos=int(s[1])
-            self.ypos=int(s[2])
+            self.xpos=int(s[2])
+            self.ypos=int(s[3])
             p.fillRect(ax,ay,self.xpos-ax,self.ypos-ay)
             p.end() 
             
