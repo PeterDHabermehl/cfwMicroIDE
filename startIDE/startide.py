@@ -6339,7 +6339,9 @@ class FtcGuiApplication(TouchApplication):
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Print"),
                              QCoreApplication.translate("addcodeline","Clear"),
                              QCoreApplication.translate("addcodeline","Message"),
-                             QCoreApplication.translate("addcodeline","Logfile")
+                             #QCoreApplication.translate("addcodeline","Logfile")
+                             QCoreApplication.translate("addcodeline","Logfile"),
+                             QCoreApplication.translate("addcodeline","Graphics")
                             ]
                           )
             ftb.setTextSize(3)
@@ -6350,7 +6352,40 @@ class FtcGuiApplication(TouchApplication):
                 elif p==QCoreApplication.translate("addcodeline","Clear"):      self.acl_clear()
                 elif p==QCoreApplication.translate("addcodeline","Message"):    self.acl_message()
                 elif p==QCoreApplication.translate("addcodeline","Logfile"):    self.acl_logfile()
-                
+                elif p==QCoreApplication.translate("addcodeline","Graphics"):
+                    ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Graphics"), self.mainwindow)
+                    ftb.setButtons([ QCoreApplication.translate("addcodeline","Canvas"),
+                                    QCoreApplication.translate("addcodeline","Pen"),
+                                    QCoreApplication.translate("addcodeline","Text"),
+                                    QCoreApplication.translate("addcodeline","Color")
+                                    ]
+                                )
+                    ftb.setTextSize(3)
+                    ftb.setBtnTextSize(3)
+                    (t,p)=ftb.exec_()
+                    if t:
+                        if   p==QCoreApplication.translate("addcodeline","Canvas"):
+                            ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Canvas"), self.mainwindow)
+                            ftb.setButtons([ QCoreApplication.translate("addcodeline","Show"),
+                                            QCoreApplication.translate("addcodeline","Hide"),
+                                            QCoreApplication.translate("addcodeline","Clear"),
+                                            QCoreApplication.translate("addcodeline","Origin"),
+                                            QCoreApplication.translate("addcodeline","Log"),
+                                            ]
+                                        )
+                            ftb.setTextSize(3)
+                            ftb.setBtnTextSize(3)
+                            (t,p)=ftb.exec_()
+                            if   p==QCoreApplication.translate("addcodeline","Show"):     self.acl_canvas_show()
+                            elif p==QCoreApplication.translate("addcodeline","Hide"):     self.acl_canvas_hide()
+                            elif p==QCoreApplication.translate("addcodeline","Clear"):    self.acl_canvas_clear()
+                            elif p==QCoreApplication.translate("addcodeline","Origin"):   self.acl_canvas_origin()
+                            elif p==QCoreApplication.translate("addcodeline","Log"):      self.acl_canvas_log()
+                            
+                        elif p==QCoreApplication.translate("addcodeline","Pen"):     self.acl_pen()
+                        elif p==QCoreApplication.translate("addcodeline","Text"):     self.acl_text()
+                        elif p==QCoreApplication.translate("addcodeline","Color"):     self.acl_color()
+                        
     def acl(self,code):
         self.proglist.insertItem(self.proglist.currentRow()+1,code)
         self.proglist.setCurrentRow(self.proglist.currentRow()+1)
@@ -6360,6 +6395,21 @@ class FtcGuiApplication(TouchApplication):
             if s=="RIF" or s=="TXT" or s=="FTD": self.lastIF=s
         except:
             pass
+        
+    def acl_canvas_show(self):
+        self.acl("Canvas show")
+        
+    def acl_canvas_hide(self):
+        self.acl("Canvas hide")
+        
+    def acl_canvas_clear(self):
+        self.acl("Canvas clear")
+        
+    def acl_canvas_origin(self):
+        self.acl("Canvas origin")
+        
+    def acl_canvas_log(self):
+        self.acl("Canvas log")
         
     def acl_counterClear(self):
         self.acl("CounterClear " + self.lastIF + " 1")
