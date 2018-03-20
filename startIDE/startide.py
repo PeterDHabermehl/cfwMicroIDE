@@ -6381,9 +6381,9 @@ class FtcGuiApplication(TouchApplication):
                             elif p==QCoreApplication.translate("addcodeline","Clear"):    self.acl_canvas_clear()
                             elif p==QCoreApplication.translate("addcodeline","Origin"):   self.acl_canvas_origin()
                             elif p==QCoreApplication.translate("addcodeline","Log"):      self.acl_canvas_log()
-                            
-                        elif p==QCoreApplication.translate("addcodeline","Pen"):     self.acl_pen()
-                        elif p==QCoreApplication.translate("addcodeline","Text"):     self.acl_text()
+                             
+                        elif p==QCoreApplication.translate("addcodeline","Pen"):       self.acl_pen()
+                        elif p==QCoreApplication.translate("addcodeline","Text"):      self.acl_text()
                         elif p==QCoreApplication.translate("addcodeline","Color"):     self.acl_color()
                         
     def acl(self,code):
@@ -6410,6 +6410,15 @@ class FtcGuiApplication(TouchApplication):
         
     def acl_canvas_log(self):
         self.acl("Canvas log")
+        
+    def acl_pen(self):
+        self.acl("Pen plot 120 120")
+        
+    def acl_text(self):
+        self.acl("Text Serif 15 Text")
+        
+    def acl_color(self):
+        self.acl("Color pen 255 0 0")
         
     def acl_counterClear(self):
         self.acl("CounterClear " + self.lastIF + " 1")
