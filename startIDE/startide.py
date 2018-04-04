@@ -621,6 +621,7 @@ class execThread(QThread):
         elif stack[0]== "IfVar":    self.cmdIfVar(stack)
         elif stack[0]== "Tag":      pass
         elif stack[0]== "Canvas":   self.cmdCanvas(line)
+        elif stack[0]== "Pen":      self.cmdPen(line)
         elif stack[0]== "CounterClear": self.cmdCounterClear(stack)
         elif stack[0]== "RIFShift": self.RIFShift=int(stack[1])
         
@@ -663,8 +664,13 @@ class execThread(QThread):
             self.interruptCommand="Call "+stack[3]+" 1"
              
     def cmdCanvas(self, line):
-       self.canvasSig.emit(line) 
+        self.canvasSig.emit(line) 
     
+    def cmdPen(self, line):
+        l=line.split()
+        nl=l[0]+" "+l[1]+" "+str(self.getVal(l[2]))+" "+str(self.getVal(l[3]))
+        self.canvasSig.emit(nl)
+        
     def cmdInit(self,a):
         if len(a)<3: a.append("0")
         cc=0
@@ -5340,6 +5346,142 @@ class editFromButtons(TouchDialog):
         for i in range(0,self.buttons.count()):
             self.cmdline=self.cmdline + " " + self.buttons.item(i).text()
         
+class editPen(TouchDialog):
+    def __init__(self, cmdline, vari, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","Pen"), parent)
+        
+        self.cmdline=cmdline
+        self.variables=vari
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.timedOut)
+        
+        self.layout=QVBoxLayout()
+
+        l=QLabel(QCoreApplication.translate("ecl", "Operation"))
+        l.setStyleSheet("font-size: 18px;")
+        self.layout.addWidget(l)
+        
+        self.operator=QComboBox()
+        self.operator.setStyleSheet("font-size: 18px;")
+        oplist=["move","plot","lineTo","rectTo","boxTo"]
+        self.operator.addItems(oplist)
+        if self.cmdline.split()[1] in oplist:
+            self.operator.setCurrentIndex(oplist.index(self.cmdline.split()[1]))
+        else:
+            self.operator.setCurrentIndex(0)
+        
+        self.layout.addWidget(self.operator)
+        
+        self.layout.addStretch()
+        l=QLabel(QCoreApplication.translate("ecl", "x position"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        self.layout.addWidget(l)
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 18px;")
+            
+        self.value.setText(self.cmdline.split()[2])
+        
+        self.value.mousePressEvent=self.valPress
+        self.value.mouseReleaseEvent=self.valRelease
+        self.layout.addWidget(self.value)
+        
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl", "y position"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        self.layout.addWidget(l)
+        
+        self.value2=QLineEdit()
+        self.value2.setReadOnly(True)
+        self.value2.setStyleSheet("font-size: 18px;")
+            
+        self.value2.setText(self.cmdline.split()[3])
+        self.value2.mousePressEvent=self.val2Press
+        self.value2.mouseReleaseEvent=self.val2Release
+        self.layout.addWidget(self.value2)        
+        
+        self.layout.addStretch()
+        
+
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="Pen " +self.operator.itemText(self.operator.currentIndex()) + " " + self.value.text()
+        self.cmdline=self.cmdline + " " + self.value2.text()
+        
+        self.close()
+    
+    def ifChanged(self):
+        self.valueChanged()
+    
+    def valPress(self,sender):
+        if self.timer.isActive(): self.timer.stop()
+        self.btn=1
+        self.btnTimedOut=False
+        self.timer.start(500)
+    
+    def timedOut(self):
+        self.btnTimedOut=True
+        self.timer.stop()
+        if self.btn==1: self.value.setText(queryVarName(self.variables,self.value.text()))  
+        else:           self.value2.setText(queryVarName(self.variables,self.value2.text())) 
+            
+    def valRelease(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            try:
+                int(self.value.text())
+            except:
+                self.value.setText("0")  
+            self.getValue(1)
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","1st Op."),a,self).exec_()
+        try:
+            self.value.setText(str(int(t)))
+        except:
+            self.value.setText(a)
+        
+    def val2Press(self,sender):
+        if self.timer.isActive(): self.timer.stop()
+        self.btnTimedOut=False
+        self.btn=2
+        self.timer.start(500)
+     
+    def val2Release(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            try:
+                int(self.value2.text())
+            except:
+                self.value2.setText("0")  
+            self.getValue2(1)
+            
+    def getValue2(self,m):
+        a=self.value2.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","2nd Op."),a,self).exec_()
+        try:
+            t=str(int(t))
+        except:
+            t=a
+        self.value2.setText(t)
 
 #
 # main GUI application
@@ -5360,6 +5502,10 @@ class FtcGuiApplication(TouchApplication):
         self.TXT=None
         self.FTD=None
         self.etf=False
+        
+        self.pred=255
+        self.pgreen=255
+        self.pblue=255
         
         # load last project
         
@@ -6022,9 +6168,7 @@ class FtcGuiApplication(TouchApplication):
         
     def canvasSig(self, stack):
         s=stack.split()
-        self.pred=255
-        self.pgreen=255
-        self.pblue=255
+
         if s[1]=="show": self.canvas.show()
         elif s[1]=="hide": self.canvas.hide()
         elif s[1]=="square":
@@ -6043,6 +6187,11 @@ class FtcGuiApplication(TouchApplication):
             p.setBackgroundMode(Qt.TransparentMode)
             p.fillRect(0,0,pm.width(),pm.height(),QtGui.QColor(50,125,195,255))
             p.end()
+        elif s[1]=="update":
+            self.canvas.repaint()
+        elif s[1]=="move":
+            self.xpos=int(s[2])
+            self.ypos=int(s[3])
         elif s[1]=="plot":
             pm=self.canvas.pixmap()
             p=QPainter()
@@ -6085,7 +6234,7 @@ class FtcGuiApplication(TouchApplication):
             self.ypos=int(s[3])
             p.fillRect(ax,ay,self.xpos-ax,self.ypos-ay)
             p.end() 
-            
+        
     def messageBox(self, stack):
         msg=stack.split("'")
         t=TouchMessageBox(QCoreApplication.translate("exec","Message"),self.mainwindow)
@@ -6222,7 +6371,6 @@ class FtcGuiApplication(TouchApplication):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Variables"), self.mainwindow)
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Init"),
                              QCoreApplication.translate("addcodeline","From..."),
-                             #QCoreApplication.translate("addcodeline","Shelf"),
                              QCoreApplication.translate("addcodeline","QueryVar"),
                              QCoreApplication.translate("addcodeline","IfVar"),
                              QCoreApplication.translate("addcodeline","Calc")
@@ -6339,7 +6487,6 @@ class FtcGuiApplication(TouchApplication):
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Print"),
                              QCoreApplication.translate("addcodeline","Clear"),
                              QCoreApplication.translate("addcodeline","Message"),
-                             #QCoreApplication.translate("addcodeline","Logfile")
                              QCoreApplication.translate("addcodeline","Logfile"),
                              QCoreApplication.translate("addcodeline","Graphics")
                             ]
@@ -6369,6 +6516,7 @@ class FtcGuiApplication(TouchApplication):
                             ftb.setButtons([ QCoreApplication.translate("addcodeline","Show"),
                                             QCoreApplication.translate("addcodeline","Hide"),
                                             QCoreApplication.translate("addcodeline","Clear"),
+                                            QCoreApplication.translate("addcodeline","Update"),
                                             QCoreApplication.translate("addcodeline","Origin"),
                                             QCoreApplication.translate("addcodeline","Log"),
                                             ]
@@ -6379,6 +6527,7 @@ class FtcGuiApplication(TouchApplication):
                             if   p==QCoreApplication.translate("addcodeline","Show"):     self.acl_canvas_show()
                             elif p==QCoreApplication.translate("addcodeline","Hide"):     self.acl_canvas_hide()
                             elif p==QCoreApplication.translate("addcodeline","Clear"):    self.acl_canvas_clear()
+                            elif p==QCoreApplication.translate("addcodeline","Update"):   self.acl_canvas_update()
                             elif p==QCoreApplication.translate("addcodeline","Origin"):   self.acl_canvas_origin()
                             elif p==QCoreApplication.translate("addcodeline","Log"):      self.acl_canvas_log()
                              
@@ -6404,6 +6553,9 @@ class FtcGuiApplication(TouchApplication):
         
     def acl_canvas_clear(self):
         self.acl("Canvas clear")
+
+    def acl_canvas_update(self):
+        self.acl("Canvas update")
         
     def acl_canvas_origin(self):
         self.acl("Canvas origin")
@@ -6633,6 +6785,7 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "Message":    itm=self.ecl_message(itm)
         elif stack[0] == "Request":    itm=self.ecl_request(itm)
         elif stack[0] == "RIFShift":   itm=self.ecl_rifshift(itm)
+        elif stack[0] == "Pen":        itm=self.ecl_pen(itm, vari)
         
         self.proglist.setCurrentRow(crow)
         self.proglist.item(crow).setText(itm)
@@ -6673,7 +6826,7 @@ class FtcGuiApplication(TouchApplication):
         for i in range(0,self.proglist.count()):
             if self.proglist.item(i).text().split()[0]=="Tag": tagteam.append(self.proglist.item(i).text()[4:])
   
-        if len(tagteam)==0:
+        if len(tagteam)==0:          
             t=TouchMessageBox(QCoreApplication.translate("ecl","IfInDig"), self.mainwindow)
             t.setCancelButton()
             t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
@@ -6999,7 +7152,8 @@ class FtcGuiApplication(TouchApplication):
         
         return "RIFShift "+str(v)
 
-
+    def ecl_pen(self, itm, vari):
+        return editPen(itm, vari, self.mainwindow).exec_()
 #
 # and the initial application launch
 #
