@@ -622,6 +622,8 @@ class execThread(QThread):
         elif stack[0]== "Tag":      pass
         elif stack[0]== "Canvas":   self.cmdCanvas(line)
         elif stack[0]== "Pen":      self.cmdPen(line)
+        elif stack[0]== "Color":    self.cmdColor(line)
+        elif stack[0]== "Text":     self.cmdText(line)
         elif stack[0]== "CounterClear": self.cmdCounterClear(stack)
         elif stack[0]== "RIFShift": self.RIFShift=int(stack[1])
         
@@ -670,6 +672,14 @@ class execThread(QThread):
         l=line.split()
         nl=l[0]+" "+l[1]+" "+str(self.getVal(l[2]))+" "+str(self.getVal(l[3]))
         self.canvasSig.emit(nl)
+
+    def cmdColor(self, line):
+        l=line.split()
+        nl=l[0]+" "+l[1]+" "+str(self.getVal(l[2]))+" "+str(self.getVal(l[3]))+" "+str(self.getVal(l[4]))
+        self.canvasSig.emit(nl)
+
+    def cmdText(self, line):
+        self.canvasSig.emit(line)
         
     def cmdInit(self,a):
         if len(a)<3: a.append("0")
@@ -5372,7 +5382,7 @@ class editPen(TouchDialog):
         
         self.operator=QComboBox()
         self.operator.setStyleSheet("font-size: 18px;")
-        oplist=["move","plot","lineTo","rectTo","boxTo"]
+        oplist=["move","plot","lineTo","rectTo","boxTo","circleTo","discTo","areaAdd","areaDraw","text"]
         self.operator.addItems(oplist)
         if self.cmdline.split()[1] in oplist:
             self.operator.setCurrentIndex(oplist.index(self.cmdline.split()[1]))
@@ -5506,6 +5516,15 @@ class FtcGuiApplication(TouchApplication):
         self.pred=255
         self.pgreen=255
         self.pblue=255
+        
+        self.bred=50
+        self.bgreen=125
+        self.bblue=195
+        
+        self.area = QtGui.QPolygonF()
+        self.fontSize=10
+        self.fontStyle="Serif"
+        self.text=""
         
         # load last project
         
@@ -6169,7 +6188,11 @@ class FtcGuiApplication(TouchApplication):
     def canvasSig(self, stack):
         s=stack.split()
 
-        if s[1]=="show": self.canvas.show()
+        if s[0]=="Text":
+            self.fontStyle=s[1]
+            self.fontSize=int(s[2])
+            self.text=" ".join(s[3:])
+        elif s[1]=="show": self.canvas.show()
         elif s[1]=="hide": self.canvas.hide()
         elif s[1]=="square":
             canvasSize=min(self.mainwindow.width(),self.mainwindow.height())
@@ -6183,9 +6206,8 @@ class FtcGuiApplication(TouchApplication):
             pm=self.canvas.pixmap() #QPixmap(self.canvas.width(), self.canvas.height())
             p=QPainter()
             p.begin(pm)
-            p.setPen(QtGui.QColor(0,0,0,255))
             p.setBackgroundMode(Qt.TransparentMode)
-            p.fillRect(0,0,pm.width(),pm.height(),QtGui.QColor(50,125,195,255))
+            p.fillRect(0,0,pm.width(),pm.height(),QtGui.QColor(self.bred,self.bgreen,self.bblue,255)) #50, 125, 195
             p.end()
         elif s[1]=="update":
             self.canvas.repaint()
@@ -6234,6 +6256,64 @@ class FtcGuiApplication(TouchApplication):
             self.ypos=int(s[3])
             p.fillRect(ax,ay,self.xpos-ax,self.ypos-ay)
             p.end() 
+        elif s[1]=="circleTo":
+            pm=self.canvas.pixmap()
+            p=QPainter()
+            p.begin(pm)
+            p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
+            ax=self.xpos
+            ay=self.ypos
+            self.xpos=int(s[2])
+            self.ypos=int(s[3])
+            p.drawEllipse(ax,ay,self.xpos-ax,self.ypos-ay)
+            p.end()
+        elif s[1]=="discTo":
+            pm=self.canvas.pixmap()
+            p=QPainter()
+            p.begin(pm)
+            p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
+            p.setBrush(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
+            ax=self.xpos
+            ay=self.ypos
+            self.xpos=int(s[2])
+            self.ypos=int(s[3])
+            p.drawEllipse(ax,ay,self.xpos-ax,self.ypos-ay)
+            p.end()
+        elif s[1]=="areaAdd":
+            self.xpos=int(s[2])
+            self.ypos=int(s[3])
+            self.area.append( QtCore.QPointF(self.xpos, self.ypos) )
+        elif s[1]=="areaDraw":
+            self.xpos=int(s[2])
+            self.ypos=int(s[3])
+            self.area.append( QtCore.QPointF(self.xpos, self.ypos) )
+            pm=self.canvas.pixmap()
+            p=QPainter()
+            p.begin(pm)
+            p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
+            p.setBrush(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
+            p.drawPolygon(self.area)
+            self.area = QtGui.QPolygonF()
+        elif s[1]=="text": # draw text
+            pm=self.canvas.pixmap()
+            p=QPainter()
+            p.begin(pm)
+            p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
+            self.xpos=int(s[2])
+            self.ypos=int(s[3])
+            p.setFont(QFont(self.fontStyle, self.fontSize))
+            p.drawText(QtCore.QPointF(self.xpos,self.ypos), self.text) 
+            p.end()                    
+        elif s[1]=="pen": # Color pen r g b
+            self.pred=int(s[2])
+            self.pgreen=int(s[3])
+            self.pblue=int(s[4])
+        elif s[1]=="paper": # Color paper r g b
+            self.bred=int(s[2])
+            self.bgreen=int(s[3])
+            self.bblue=int(s[4])
+
+            
         
     def messageBox(self, stack):
         msg=stack.split("'")
