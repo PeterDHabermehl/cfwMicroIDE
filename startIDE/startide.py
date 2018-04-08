@@ -4933,7 +4933,6 @@ class editFromSys(TouchDialog):
 
         self.close()
     
-
 class editFromKeypad(TouchDialog):
     def __init__(self, cmdline, vari, parent=None):
         TouchDialog.__init__(self, QCoreApplication.translate("ecl","FromKeypad"), parent)
@@ -5382,7 +5381,7 @@ class editPen(TouchDialog):
         
         self.operator=QComboBox()
         self.operator.setStyleSheet("font-size: 18px;")
-        oplist=["move","plot","lineTo","rectTo","boxTo","circleTo","discTo","areaAdd","areaDraw","text"]
+        oplist=["move","plot","lineTo","rectTo","boxTo","eraseTo","circleTo","discTo","areaAdd","areaDraw","text"]
         self.operator.addItems(oplist)
         if self.cmdline.split()[1] in oplist:
             self.operator.setCurrentIndex(oplist.index(self.cmdline.split()[1]))
@@ -6203,7 +6202,7 @@ class FtcGuiApplication(TouchApplication):
             self.canvas.setPixmap(QPixmap(self.mainwindow.width(), self.mainwindow.height()))
         elif s[1]=="clear":
             self.canvas.setPixmap(QPixmap(self.canvas.width(), self.canvas.height()))
-            pm=self.canvas.pixmap() #QPixmap(self.canvas.width(), self.canvas.height())
+            pm=self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setBackgroundMode(Qt.TransparentMode)
@@ -6211,6 +6210,16 @@ class FtcGuiApplication(TouchApplication):
             p.end()
         elif s[1]=="update":
             self.canvas.repaint()
+        elif s[1]=="origin":
+            pm=self.canvas.pixmap()
+            pm.scroll(self.xpos, self.ypos, pm.rect())
+        elif s[1]=="log":
+            pm=self.canvas.pixmap()
+            try:
+                lfn=logdir+"img"+time.strftime("%Y%m%d-%H%M%S")+".png"
+                pm.save(lfn,"",90)
+            except:
+                pass
         elif s[1]=="move":
             self.xpos=int(s[2])
             self.ypos=int(s[3])
@@ -6254,7 +6263,7 @@ class FtcGuiApplication(TouchApplication):
             ay=self.ypos
             self.xpos=int(s[2])
             self.ypos=int(s[3])
-            p.fillRect(ax,ay,self.xpos-ax,self.ypos-ay)
+            p.fillRect(ax,ay,self.xpos-ax,self.ypos-ay,QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
             p.end() 
         elif s[1]=="circleTo":
             pm=self.canvas.pixmap()
@@ -6279,6 +6288,17 @@ class FtcGuiApplication(TouchApplication):
             self.ypos=int(s[3])
             p.drawEllipse(ax,ay,self.xpos-ax,self.ypos-ay)
             p.end()
+        elif s[1]=="eraseTo":
+            pm=self.canvas.pixmap()
+            p=QPainter()
+            p.begin(pm)
+            p.setPen(QtGui.QColor(self.bred, self.bgreen, self.bblue, 255))
+            ax=self.xpos
+            ay=self.ypos
+            self.xpos=int(s[2])
+            self.ypos=int(s[3])
+            p.fillRect(ax,ay,self.xpos-ax,self.ypos-ay,QtGui.QColor(self.bred, self.bgreen, self.bblue, 255))
+            p.end() 
         elif s[1]=="areaAdd":
             self.xpos=int(s[2])
             self.ypos=int(s[3])
