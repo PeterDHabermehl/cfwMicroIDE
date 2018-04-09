@@ -5516,9 +5516,9 @@ class FtcGuiApplication(TouchApplication):
         self.pgreen=255
         self.pblue=255
         
-        self.bred=50
-        self.bgreen=125
-        self.bblue=195
+        self.bred=33
+        self.bgreen=117
+        self.bblue=204
         
         self.area = QtGui.QPolygonF()
         self.fontSize=10
@@ -6212,7 +6212,7 @@ class FtcGuiApplication(TouchApplication):
             self.canvas.repaint()
         elif s[1]=="origin":
             pm=self.canvas.pixmap()
-            pm.scroll(self.xpos, self.ypos, pm.rect())
+            pm.scroll(0-self.xpos, 0-self.ypos, pm.rect())
         elif s[1]=="log":
             pm=self.canvas.pixmap()
             try:
