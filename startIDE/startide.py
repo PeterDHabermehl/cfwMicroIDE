@@ -5734,7 +5734,7 @@ class editColor(TouchDialog):
                    QCoreApplication.translate("color","grey"),
                    QCoreApplication.translate("color","black")]
                    
-        (s,r)=TouchAuxListRequester(QCoreApplication.translate("color","Colors"),"",colorlist,colorlist[0],"Okay",self.parent()).exec_()        
+        (s,r)=TouchAuxListRequester(QCoreApplication.translate("color","Colors"),"",colorlist,colorlist[0],"Okay",self).exec_()        
         if not s: return
     
         if r ==   QCoreApplication.translate("color","red"):
