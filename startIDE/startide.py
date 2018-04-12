@@ -164,6 +164,7 @@ class execThread(QThread):
         
         self.parent.msgBack.connect(self.msgBack)
         self.parent.IMsgBack.connect(self.IMsgBack)
+        self.parent.gfxData.connect(self.gfxData)
         self.parent.stop.connect(self.stop)
         
     def run(self):
@@ -190,6 +191,8 @@ class execThread(QThread):
         self.impmod=[]
         self.memory=[]
         
+        self.getCanvasData()
+
         cnt=0
         mcnt=0
         
@@ -558,6 +561,16 @@ class execThread(QThread):
     
     def IMsgBack(self,var):
         self.imesg=var
+    
+    def gfxData(self, xr, yr, xp, yp, pred, pgreen, pblue):
+        self.CxRes = xr
+        self.CyRes = yr
+        self.CxPos = xp
+        self.CyPos = yp
+        self.CpRed = pred
+        self.CpGreen = pgreen
+        self.CpBlue = pblue
+        self.msg=1
         
     def parseLine(self,line):
         stack=line.split()
@@ -786,6 +799,27 @@ class execThread(QThread):
             t=int(time.strftime("%m"))        
         elif stack[2]=="day":
             t=int(time.strftime("%d"))
+        elif stack[2]=="CxRes":
+            self.getCanvasData()
+            t=self.CxRes
+        elif stack[2]=="CyRes":
+            self.getCanvasData()
+            t=self.CyRes
+        elif stack[2]=="CxPos":
+            self.getCanvasData()
+            t=self.CxPos
+        elif stack[2]=="CyPos":
+            self.getCanvasData()
+            t=self.CyPos
+        elif stack[2]=="CpRed":
+            self.getCanvasData()
+            t=self.CpRed
+        elif stack[2]=="CpGreen":
+            self.getCanvasData()
+            t=self.CpGreen
+        elif stack[2]=="CpBlue":
+            self.getCanvasData()
+            t=self.CpBlue
         else:
             t=-1
         
@@ -798,7 +832,14 @@ class execThread(QThread):
         if cc==len(self.memory):        
             self.halt=True
             self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated") 
-        
+    
+    def getCanvasData(self):
+        self.canvasSig.emit("requestData")
+        self.msg=0
+        while self.msg==0:
+            self.parent.processEvents()
+            time.sleep(0.01)
+    
     def cmdFromRIIR(self, stack):        
         try:
             t=self.RIF.GetIR()
@@ -4894,7 +4935,9 @@ class editFromSys(TouchDialog):
         l.setStyleSheet("font-size: 18px;")
         
         h.addWidget(l)
-        f=["timer","hour","minute","second","year","month","day","RIIR","dispBtn"]
+        f=["timer","hour","minute","second","year","month","day",
+           "RIIR","dispBtn",
+           "CxRes","CyRes","CxPos","CyPos","CpRed","CpGreen","CpBlue"]
         self.data=QComboBox()
         self.data.setStyleSheet("font-size: 18px;")
         self.data.addItems(f)
@@ -6012,6 +6055,7 @@ class FtcGuiApplication(TouchApplication):
     msgBack=pyqtSignal(int)
     IMsgBack=pyqtSignal(str)
     stop=pyqtSignal()
+    gfxData=pyqtSignal(int, int, int, int, int, int, int)
     
     def __init__(self, args):
         TouchApplication.__init__(self, args)
@@ -6030,6 +6074,9 @@ class FtcGuiApplication(TouchApplication):
         self.bred=33
         self.bgreen=117
         self.bblue=204
+        
+        self.xpos=0
+        self.ypos=0
         
         self.area = QtGui.QPolygonF()
         self.fontSize=10
@@ -6702,6 +6749,13 @@ class FtcGuiApplication(TouchApplication):
             self.fontStyle=s[1]
             self.fontSize=int(s[2])
             self.text=" ".join(s[3:])
+        elif s[0]=="requestData":
+            print("x:",self.xpos,"y:",self.ypos)
+            rgb=self.canvas.pixmap().toImage().pixel(self.xpos,self.ypos)
+            self.gfxData.emit(self.canvas.width(),
+                              self.canvas.height(),
+                              self.xpos,
+                              self.ypos, QtGui.qRed(rgb), QtGui.qGreen(rgb), QtGui.qBlue(rgb))
         elif s[1]=="show": self.canvas.show()
         elif s[1]=="hide": self.canvas.hide()
         elif s[1]=="square":
