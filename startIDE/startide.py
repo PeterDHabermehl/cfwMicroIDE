@@ -5988,7 +5988,7 @@ class editVarToText(TouchDialog):
         
         self.layout.addStretch()
         
-        l=QLabel(QCoreApplication.translate("ecl","Text"))
+        l=QLabel(QCoreApplication.translate("ecl","Variable"))
         l.setStyleSheet("font-size: 18px;")
         self.layout.addWidget(l)
         
@@ -6750,7 +6750,6 @@ class FtcGuiApplication(TouchApplication):
             self.fontSize=int(s[2])
             self.text=" ".join(s[3:])
         elif s[0]=="requestData":
-            print("x:",self.xpos,"y:",self.ypos)
             rgb=self.canvas.pixmap().toImage().pixel(self.xpos,self.ypos)
             self.gfxData.emit(self.canvas.width(),
                               self.canvas.height(),
@@ -7835,6 +7834,15 @@ class FtcGuiApplication(TouchApplication):
         return editText(itm, vari, self.mainwindow).exec_()
 
     def ecl_varToText(self, itm, vari):
+        if len(varlist)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","VarToText"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
         return editVarToText(itm, vari, self.mainwindow).exec_()
 
 #
