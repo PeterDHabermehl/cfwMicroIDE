@@ -7834,7 +7834,7 @@ class FtcGuiApplication(TouchApplication):
         return editText(itm, vari, self.mainwindow).exec_()
 
     def ecl_varToText(self, itm, vari):
-        if len(varlist)==0:
+        if len(vari)==0:
             t=TouchMessageBox(QCoreApplication.translate("ecl","VarToText"), self.mainwindow)
             t.setCancelButton()
             t.setText(QCoreApplication.translate("ecl","No variables defined!"))
