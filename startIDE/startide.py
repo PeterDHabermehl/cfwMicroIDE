@@ -166,6 +166,7 @@ class execThread(QThread):
         self.parent.IMsgBack.connect(self.IMsgBack)
         self.parent.gfxData.connect(self.gfxData)
         self.parent.stop.connect(self.stop)
+        self.parent.canvasReturn.connect(self.onCanvasReturn)
         
     def run(self):
         
@@ -571,6 +572,7 @@ class execThread(QThread):
         self.CpGreen = pgreen
         self.CpBlue = pblue
         self.msg=1
+        self.can=1
         
     def parseLine(self,line):
         stack=line.split()
@@ -679,26 +681,44 @@ class execThread(QThread):
             self.interrupt=time.time()+self.interruptTime
             self.interruptCommand="Call "+stack[3]+" 1"
              
+    def waitForCanvasReturn(self):
+        while self.can==0:
+            self.parent.processEvents()
+            #pass
+            
+    def onCanvasReturn(self):
+        self.can=1
+    
     def cmdCanvas(self, line):
+        self.can=0
         self.canvasSig.emit(line) 
+        self.waitForCanvasReturn()
     
     def cmdPen(self, line):
+        self.can=0
         l=line.split()
         nl=l[0]+" "+l[1]+" "+str(self.getVal(l[2]))+" "+str(self.getVal(l[3]))
         self.canvasSig.emit(nl)
-
+        self.waitForCanvasReturn()
+        
     def cmdColor(self, line):
+        self.can=0
         l=line.split()
         nl=l[0]+" "+l[1]+" "+str(self.getVal(l[2]))+" "+str(self.getVal(l[3]))+" "+str(self.getVal(l[4]))
         self.canvasSig.emit(nl)
-
+        self.waitForCanvasReturn()
+        
     def cmdText(self, line):
+        self.can=0
         self.canvasSig.emit(line)
-    
+        self.waitForCanvasReturn()
+        
     def cmdVarToText(self, line):
+        self.can=0
         l=line.split()
         nl="Text " + l[1] + " " + l[2] + " " + str(self.getVal(l[3]))
         self.canvasSig.emit(nl)
+        self.waitForCanvasReturn()
         
     def cmdInit(self,a):
         if len(a)<3: a.append("0")
@@ -834,11 +854,10 @@ class execThread(QThread):
             self.cmdPrint("Variable '"+stack[1]+"'\nreferenced without\nInit!\nProgram terminated") 
     
     def getCanvasData(self):
-        self.canvasSig.emit("requestData")
         self.msg=0
+        self.canvasSig.emit("requestData")
         while self.msg==0:
             self.parent.processEvents()
-            time.sleep(0.01)
     
     def cmdFromRIIR(self, stack):        
         try:
@@ -6056,6 +6075,7 @@ class FtcGuiApplication(TouchApplication):
     IMsgBack=pyqtSignal(str)
     stop=pyqtSignal()
     gfxData=pyqtSignal(int, int, int, int, int, int, int)
+    canvasReturn=pyqtSignal()
     
     def __init__(self, args):
         TouchApplication.__init__(self, args)
@@ -6252,6 +6272,7 @@ class FtcGuiApplication(TouchApplication):
         #self.canvas.setPixmap(QPixmap(pixdir+"pixmap.png"))
         self.canvas.setPixmap(QPixmap(canvasSize, canvasSize))
         self.canvas.hide()
+        self.painter=QImage(canvasSize, canvasSize, QImage.Format_RGB32)
         
         self.mainwindow.show()
         try:
@@ -6749,34 +6770,47 @@ class FtcGuiApplication(TouchApplication):
             self.fontStyle=s[1]
             self.fontSize=int(s[2])
             self.text=" ".join(s[3:])
+            self.canvasReturn.emit()
         elif s[0]=="requestData":
-            rgb=self.canvas.pixmap().toImage().pixel(self.xpos,self.ypos)
+            rgb=self.painter.pixel(self.xpos,self.ypos)
             self.gfxData.emit(self.canvas.width(),
                               self.canvas.height(),
                               self.xpos,
                               self.ypos, QtGui.qRed(rgb), QtGui.qGreen(rgb), QtGui.qBlue(rgb))
-        elif s[1]=="show": self.canvas.show()
-        elif s[1]=="hide": self.canvas.hide()
+        elif s[1]=="show":
+            self.canvas.show()
+            self.canvasReturn.emit()
+        elif s[1]=="hide": 
+            self.canvas.hide()
+            self.canvasReturn.emit()
         elif s[1]=="square":
             canvasSize=min(self.mainwindow.width(),self.mainwindow.height())
             self.canvas.setGeometry(0, 0, canvasSize, canvasSize)
             self.canvas.setPixmap(QPixmap(canvasSize, canvasSize))
+            self.canvasReturn.emit()
         elif s[1]=="full":
             self.canvas.setGeometry(0, 0, self.mainwindow.width(), self.mainwindow.height())
             self.canvas.setPixmap(QPixmap(self.mainwindow.width(), self.mainwindow.height()))
+            self.canvasReturn.emit()
         elif s[1]=="clear":
             self.canvas.setPixmap(QPixmap(self.canvas.width(), self.canvas.height()))
-            pm=self.canvas.pixmap()
+            pm=self.painter
             p=QPainter()
             p.begin(pm)
             p.setBackgroundMode(Qt.TransparentMode)
             p.fillRect(0,0,pm.width(),pm.height(),QtGui.QColor(self.bred,self.bgreen,self.bblue,255)) #50, 125, 195
             p.end()
+            self.canvas.setPixmap(QPixmap.fromImage(self.painter))
+            self.canvasReturn.emit()
         elif s[1]=="update":
+            self.canvas.setPixmap(QPixmap.fromImage(self.painter))
             self.canvas.repaint()
+            self.canvasReturn.emit()
         elif s[1]=="origin":
-            pm=self.canvas.pixmap()
-            pm.scroll(0-self.xpos, 0-self.ypos, pm.rect())
+            self.canvas.setPixmap(QPixmap.fromImage(self.painter))
+            self.canvas.pixmap().scroll(0-self.xpos, 0-self.ypos, self.painter.rect())
+            self.painter=self.canvas.pixmap().toImage()
+            self.canvasReturn.emit()
         elif s[1]=="log":
             pm=self.canvas.pixmap()
             try:
@@ -6784,11 +6818,13 @@ class FtcGuiApplication(TouchApplication):
                 pm.save(lfn,"",90)
             except:
                 pass
+            self.canvasReturn.emit()
         elif s[1]=="move":
             self.xpos=int(s[2])
             self.ypos=int(s[3])
+            self.canvasReturn.emit()
         elif s[1]=="plot":
-            pm=self.canvas.pixmap()
+            pm=self.painter #self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -6796,8 +6832,9 @@ class FtcGuiApplication(TouchApplication):
             self.ypos=int(s[3])
             p.drawPoint(self.xpos,self.ypos)
             p.end()
+            self.canvasReturn.emit()
         elif s[1]=="lineTo":
-            pm=self.canvas.pixmap()
+            pm=self.painter #self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -6807,8 +6844,9 @@ class FtcGuiApplication(TouchApplication):
             self.ypos=int(s[3])
             p.drawLine(ax,ay,self.xpos,self.ypos)
             p.end()  
+            self.canvasReturn.emit()
         elif s[1]=="rectTo":
-            pm=self.canvas.pixmap()
+            pm=self.painter #self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -6816,10 +6854,11 @@ class FtcGuiApplication(TouchApplication):
             ay=self.ypos
             self.xpos=int(s[2])
             self.ypos=int(s[3])
-            p.drawRect(ax,ay,self.xpos-ax,self.ypos-ay)
+            p.drawRect(ax,ay,self.xpos-ax+1,self.ypos-ay+1)
             p.end() 
+            self.canvasReturn.emit()
         elif s[1]=="boxTo":
-            pm=self.canvas.pixmap()
+            pm=self.painter #self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -6827,10 +6866,11 @@ class FtcGuiApplication(TouchApplication):
             ay=self.ypos
             self.xpos=int(s[2])
             self.ypos=int(s[3])
-            p.fillRect(ax,ay,self.xpos-ax,self.ypos-ay,QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
+            p.fillRect(ax,ay,self.xpos-ax+1,self.ypos-ay+1,QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
             p.end() 
+            self.canvasReturn.emit()
         elif s[1]=="circleTo":
-            pm=self.canvas.pixmap()
+            pm=self.painter #self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -6840,8 +6880,9 @@ class FtcGuiApplication(TouchApplication):
             self.ypos=int(s[3])
             p.drawEllipse(ax,ay,self.xpos-ax,self.ypos-ay)
             p.end()
+            self.canvasReturn.emit()
         elif s[1]=="discTo":
-            pm=self.canvas.pixmap()
+            pm=self.painter #self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -6852,8 +6893,9 @@ class FtcGuiApplication(TouchApplication):
             self.ypos=int(s[3])
             p.drawEllipse(ax,ay,self.xpos-ax,self.ypos-ay)
             p.end()
+            self.canvasReturn.emit()
         elif s[1]=="eraseTo":
-            pm=self.canvas.pixmap()
+            pm=self.painter #self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.bred, self.bgreen, self.bblue, 255))
@@ -6863,23 +6905,26 @@ class FtcGuiApplication(TouchApplication):
             self.ypos=int(s[3])
             p.fillRect(ax,ay,self.xpos-ax,self.ypos-ay,QtGui.QColor(self.bred, self.bgreen, self.bblue, 255))
             p.end() 
+            self.canvasReturn.emit()
         elif s[1]=="areaAdd":
             self.xpos=int(s[2])
             self.ypos=int(s[3])
             self.area.append( QtCore.QPointF(self.xpos, self.ypos) )
+            self.canvasReturn.emit()
         elif s[1]=="areaDraw":
             self.xpos=int(s[2])
             self.ypos=int(s[3])
             self.area.append( QtCore.QPointF(self.xpos, self.ypos) )
-            pm=self.canvas.pixmap()
+            pm=self.painter #self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
             p.setBrush(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
             p.drawPolygon(self.area)
             self.area = QtGui.QPolygonF()
+            self.canvasReturn.emit()
         elif s[1]=="text": # draw text
-            pm=self.canvas.pixmap()
+            pm=self.painter #self.canvas.pixmap()
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -6887,16 +6932,19 @@ class FtcGuiApplication(TouchApplication):
             self.ypos=int(s[3])
             p.setFont(QFont(self.fontStyle, self.fontSize))
             p.drawText(QtCore.QPointF(self.xpos,self.ypos), self.text) 
-            p.end()                    
+            p.end()                 
+            self.canvasReturn.emit()
         elif s[1]=="pen": # Color pen r g b
             self.pred=min(max(int(s[2]),0),255)
             self.pgreen=min(max(int(s[3]),0),255)
             self.pblue=min(max(int(s[4]),0),255)
+            self.canvasReturn.emit()
         elif s[1]=="paper": # Color paper r g b
             self.bred=min(max(int(s[2]),0),255)
             self.bgreen=min(max(int(s[3]),0),255)
             self.bblue=min(max(int(s[4]),0),255)
-
+            self.canvasReturn.emit()        
+        
             
         
     def messageBox(self, stack):
