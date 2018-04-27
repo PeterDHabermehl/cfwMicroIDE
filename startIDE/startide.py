@@ -6807,9 +6807,10 @@ class FtcGuiApplication(TouchApplication):
             self.canvas.repaint()
             self.canvasReturn.emit()
         elif s[1]=="origin":
-            self.canvas.setPixmap(QPixmap.fromImage(self.painter))
-            self.canvas.pixmap().scroll(0-self.xpos, 0-self.ypos, self.painter.rect())
-            self.painter=self.canvas.pixmap().toImage()
+            self.painter=self.painter.copy(self.xpos, self.ypos, self.painter.width(), self.painter.height())
+            #self.canvas.setPixmap(QPixmap.fromImage(self.painter))
+            #self.canvas.pixmap().scroll(0-self.xpos, 0-self.ypos, self.painter.rect())
+            #self.painter=self.canvas.pixmap().toImage()
             self.canvasReturn.emit()
         elif s[1]=="log":
             pm=self.canvas.pixmap()
