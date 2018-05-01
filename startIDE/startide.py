@@ -167,6 +167,8 @@ class execThread(QThread):
         self.parent.gfxData.connect(self.gfxData)
         self.parent.stop.connect(self.stop)
         self.parent.canvasReturn.connect(self.onCanvasReturn)
+        self.parent.click.connect(self.onTouch)
+        self.parent.release.connect(self.onRelease)
         
     def run(self):
         
@@ -193,6 +195,9 @@ class execThread(QThread):
         self.memory=[]
         
         self.getCanvasData()
+
+        self.touchEventX=0
+        self.touchEventY=0
 
         cnt=0
         mcnt=0
@@ -576,7 +581,7 @@ class execThread(QThread):
         
     def parseLine(self,line):
         stack=line.split()
-        if stack[0]  == "#":
+        if line[0:1]  == "#":
             if "TRACEON" in line:    self.trace=True
             elif "TRACEOFF" in line: self.trace=False
             if "STEPON" in line:     
@@ -642,6 +647,8 @@ class execThread(QThread):
         elif stack[0]== "VarToText": self.cmdVarToText(line)
         elif stack[0]== "CounterClear": self.cmdCounterClear(stack)
         elif stack[0]== "RIFShift": self.RIFShift=int(stack[1])
+        elif stack[0]== "WaitForTouch": self.cmdWaitForTouch()
+        elif stack[0]== "WaitForRelease": self.cmdWaitForRelease()
         
         else:
             self.cmdPrint("DontKnowWhatToDo\nin line:\n"+line)
@@ -667,6 +674,28 @@ class execThread(QThread):
         self.halt=True
         self.cmdPrint("Variable '"+var+"'\nreferenced without\nInit!\nProgram terminated")
         return 0
+    
+    def onTouch(self,thing):
+        self.touchEventX=thing.x()
+        self.touchEventY=thing.y()
+        self.touched=True
+        self.released=False
+        
+    def onRelease(self,thing):
+        self.touchEventX=thing.x()
+        self.touchEventY=thing.y()
+        self.released=True
+        self.touched=False
+        
+    def cmdWaitForTouch(self):
+        self.touched=False        
+        while self.touched==False:
+            pass
+
+    def cmdWaitForRelease(self):
+        if not self.touched: self.released=False        
+        while self.released==False:
+            pass
     
     def cmdInterrupt(self,stack):
         if stack[1]=="Off":
@@ -840,6 +869,10 @@ class execThread(QThread):
         elif stack[2]=="CpBlue":
             self.getCanvasData()
             t=self.CpBlue
+        elif stack[2]=="touchXPos":
+            t=self.touchEventX
+        elif stack[2]=="touchYPos":
+            t=self.touchEventY
         else:
             t=-1
         
@@ -4956,7 +4989,8 @@ class editFromSys(TouchDialog):
         h.addWidget(l)
         f=["timer","hour","minute","second","year","month","day",
            "RIIR","dispBtn",
-           "CxRes","CyRes","CxPos","CyPos","CpRed","CpGreen","CpBlue"]
+           "CxRes","CyRes","CxPos","CyPos","CpRed","CpGreen","CpBlue",
+           "touchXPos","touchYPos"]
         self.data=QComboBox()
         self.data.setStyleSheet("font-size: 18px;")
         self.data.addItems(f)
@@ -6076,6 +6110,8 @@ class FtcGuiApplication(TouchApplication):
     stop=pyqtSignal()
     gfxData=pyqtSignal(int, int, int, int, int, int, int)
     canvasReturn=pyqtSignal()
+    click=pyqtSignal(QMouseEvent)
+    release=pyqtSignal(QMouseEvent)
     
     def __init__(self, args):
         TouchApplication.__init__(self, args)
@@ -6273,6 +6309,8 @@ class FtcGuiApplication(TouchApplication):
         self.canvas.setPixmap(QPixmap(canvasSize, canvasSize))
         self.canvas.hide()
         self.painter=QImage(canvasSize, canvasSize, QImage.Format_RGB32)
+        self.canvas.mousePressEvent=self.click.emit
+        self.canvas.mouseReleaseEvent=self.release.emit
         
         self.mainwindow.show()
         try:
@@ -7201,7 +7239,8 @@ class FtcGuiApplication(TouchApplication):
                              QCoreApplication.translate("addcodeline","Clear"),
                              QCoreApplication.translate("addcodeline","Message"),
                              QCoreApplication.translate("addcodeline","Logfile"),
-                             QCoreApplication.translate("addcodeline","Graphics")
+                             QCoreApplication.translate("addcodeline","Graphics"),
+                             QCoreApplication.translate("addcodeline","Touch")
                             ]
                           )
             ftb.setTextSize(3)
@@ -7249,7 +7288,20 @@ class FtcGuiApplication(TouchApplication):
                         elif p==QCoreApplication.translate("addcodeline","Text"):      self.acl_text()
                         elif p==QCoreApplication.translate("addcodeline","Color"):     self.acl_color()
                         elif p==QCoreApplication.translate("addcodeline","VarToText"): self.acl_varToText()
-                        
+                elif p==QCoreApplication.translate("addcodeline","Touch"):
+                    ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Touch"), self.mainwindow)
+                    ftb.setButtons([ QCoreApplication.translate("addcodeline","WaitForTouch"),
+                                    QCoreApplication.translate("addcodeline","WaitForRelease")
+                                    ]
+                                )                    
+                    ftb.setTextSize(3)
+                    ftb.setBtnTextSize(3)
+                    (t,p)=ftb.exec_()
+                    if t:
+                        if   p==QCoreApplication.translate("addcodeline","WaitForTouch"):   self.acl_waitForTouch()
+                        elif p==QCoreApplication.translate("addcodeline","WaitForRelease"): self.acl_waitForRelease()
+                            
+                            
     def acl(self,code):
         self.proglist.insertItem(self.proglist.currentRow()+1,code)
         self.proglist.setCurrentRow(self.proglist.currentRow()+1)
@@ -7289,6 +7341,12 @@ class FtcGuiApplication(TouchApplication):
         
     def acl_color(self):
         self.acl("Color pen 255 0 0")
+    
+    def acl_waitForTouch(self):
+        self.acl("WaitForTouch")
+    
+    def acl_waitForRelease(self):
+        self.acl("WaitForRelease")
         
     def acl_counterClear(self):
         self.acl("CounterClear " + self.lastIF + " 1")
