@@ -1,6 +1,15 @@
 # startIDE
 An app to provide an onboard IDE for *very* simple projects (just switch outputs depending on an input...)
 
+----------------------------
+See the ftcommunity board threads:
+
+[The general startIDE thread](https://forum.ftcommunity.de/viewtopic.php?f=33&t=4588)
+
+[Practical experiments using startIDE](https://forum.ftcommunity.de/viewtopic.php?f=8&t=4740)
+
+----------------------------
+
 startIDE can be run on both ft TXT and community TX-Pi.
 
 ![Main window](ddoc/screenshots/startIDE01.png)
