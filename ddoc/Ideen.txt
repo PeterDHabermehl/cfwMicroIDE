@@ -1,6 +1,6 @@
 startIDE Ideensammlung
 ======================
-Stand 21.12.2017
+Stand 16.07.2018
 
 
 1) Arrays
@@ -11,19 +11,15 @@ Stand 21.12.2017
 - Stat <array> <operator="min||max||mean||sigma"> <variable>
 
 2) IfTime & IfDate
-    --> im GUI integrieren, exec schon fertig
+
+- Obsolete, since date and time can be read using FromSys and evaluated using IfVar
 
 3) Sound
     --> für TXT im exec schon fertig, GUI fehlt
     
-4) Grafik
+4) Graphics
 
-- Canvas <cmd="on||off||clear||log">
-- Plot <x> <y>
-- DrawTo <x> <y> <shape="line||rect||rectSolid||oval||ovalSolid">
-- Pen <r> <g> <b> 
-- Text <x> <y> <size> <text>
-- Scroll <dx> <dy>
+- Implemented since v1.4
 
 5) Shelf
 
@@ -37,16 +33,16 @@ Stand 21.12.2017
 
 6) FromSys
 
-- FromSys <variable> <cmd="Day||Month||Year||Hour||Minute||Second">
-... more to be defined
+- Implemented
 
 7) Menustruktur
 
 - Module Export ---> löscht Modul nach Speichern aus dem Programmcode ---> Call xxx wird autom. durch CallExt xxx ersetzt.
 - Module Save   ---> speichert Modul, ohne es aus dem Code zu löschen...
 
-8) FromRIIR
-    --> im exec schon fertig
+8) FromRIIR - read Robo Interface Infrared remote status
+
+Obsolete, because implemented via FromSys
 
 9) FromRemote <device="TXT-IR||USB"> <axis|button> <variable>
 
