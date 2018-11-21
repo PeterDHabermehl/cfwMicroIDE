@@ -4647,41 +4647,47 @@ class editIfTouchArea(TouchDialog):
         # VBox
         
         # HBox
-        
-        l=QLabel(QCoreApplication.translate("ecl","x1"))
+        hbm=QHBoxLayout()        
+        l=QLabel(QCoreApplication.translate("ecl","x1:"))
         l.setStyleSheet("font-size: 18px;")
-        self.layout.addWidget(l)     
+        hbm.addWidget(l)     
         
         self.value1=QLineEdit()
         self.value1.setReadOnly(True)
         self.value1.setStyleSheet("font-size: 18px;")
-            
+        hbm.addStretch()    
         self.value1.setText(self.cmdline.split()[1])
         self.value1.mousePressEvent=self.val1Press
         self.value1.mouseReleaseEvent=self.val1Release
-        self.layout.addWidget(self.value1)
+        hbm.addWidget(self.value1)
         
+        self.layout.addLayout(hbm)
         self.layout.addStretch()
         
-        l=QLabel(QCoreApplication.translate("ecl","y1"))
+        # HBox
+        hbm=QHBoxLayout()         
+        l=QLabel(QCoreApplication.translate("ecl","y1:"))
         l.setStyleSheet("font-size: 18px;")
-        self.layout.addWidget(l)     
+        hbm.addWidget(l)     
         
         self.value2=QLineEdit()
         self.value2.setReadOnly(True)
         self.value2.setStyleSheet("font-size: 18px;")
-            
+        hbm.addStretch()    
         self.value2.setText(self.cmdline.split()[2])
         self.value2.mousePressEvent=self.val2Press
         self.value2.mouseReleaseEvent=self.val2Release
-        self.layout.addWidget(self.value2)
+        hbm.addWidget(self.value2)
         
+        self.layout.addLayout(hbm)
         self.layout.addStretch()
-        
-        l=QLabel(QCoreApplication.translate("ecl","x2"))
+
+        # HBox
+        hbm=QHBoxLayout()         
+        l=QLabel(QCoreApplication.translate("ecl","x2:"))
         l.setStyleSheet("font-size: 18px;")
-        self.layout.addWidget(l)     
-        
+        hbm.addWidget(l)     
+        hbm.addStretch()
         self.value3=QLineEdit()
         self.value3.setReadOnly(True)
         self.value3.setStyleSheet("font-size: 18px;")
@@ -4689,13 +4695,17 @@ class editIfTouchArea(TouchDialog):
         self.value3.setText(self.cmdline.split()[3])
         self.value3.mousePressEvent=self.val3Press
         self.value3.mouseReleaseEvent=self.val3Release
-        self.layout.addWidget(self.value3)
+        hbm.addWidget(self.value3)
         
+        self.layout.addLayout(hbm)
         self.layout.addStretch()
         
-        l=QLabel(QCoreApplication.translate("ecl","y2"))
+        # HBox
+        hbm=QHBoxLayout() 
+        l=QLabel(QCoreApplication.translate("ecl","y2:"))
         l.setStyleSheet("font-size: 18px;")
-        self.layout.addWidget(l)     
+        hbm.addWidget(l)     
+        hbm.addStretch()
         
         self.value4=QLineEdit()
         self.value4.setReadOnly(True)
@@ -4704,8 +4714,9 @@ class editIfTouchArea(TouchDialog):
         self.value4.setText(self.cmdline.split()[4])
         self.value4.mousePressEvent=self.val4Press
         self.value4.mouseReleaseEvent=self.val4Release
-        self.layout.addWidget(self.value4)
+        hbm.addWidget(self.value4)
         
+        self.layout.addLayout(hbm)
         self.layout.addStretch()
         
         l=QLabel(QCoreApplication.translate("ecl","Target"))
