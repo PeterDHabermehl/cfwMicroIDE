@@ -7364,7 +7364,8 @@ class FtcGuiApplication(TouchApplication):
                              QCoreApplication.translate("addcodeline","From..."),
                              QCoreApplication.translate("addcodeline","QueryVar"),
                              QCoreApplication.translate("addcodeline","IfVar"),
-                             QCoreApplication.translate("addcodeline","Calc")
+                             QCoreApplication.translate("addcodeline","Calc"),
+                             QCoreApplication.translate("addcodeline","Arrays")
                             ]
                           )
             ftb.setTextSize(3)
@@ -7377,8 +7378,8 @@ class FtcGuiApplication(TouchApplication):
             (t,p)=ftb.exec_()
             if t:
                 if   p==QCoreApplication.translate("addcodeline","Init"):       self.acl_init()
-                if   p==QCoreApplication.translate("addcodeline","From..."):
-                    ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Variables"), self.mainwindow)
+                elif   p==QCoreApplication.translate("addcodeline","From..."):
+                    ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","From..."), self.mainwindow)
                     ftb.setButtons([    QCoreApplication.translate("addcodeline","FromIn"),
                                         QCoreApplication.translate("addcodeline","FromKeypad"),
                                         QCoreApplication.translate("addcodeline","FromDial"),
@@ -7401,8 +7402,30 @@ class FtcGuiApplication(TouchApplication):
                     elif p2==QCoreApplication.translate("addcodeline","FromButtons"): self.acl_fromButtons()
                     elif p2==QCoreApplication.translate("addcodeline","FromPoly"): self.acl_fromPoly()
                     elif p2==QCoreApplication.translate("addcodeline","FromSys"): self.acl_fromSys()
+                
+                elif   p==QCoreApplication.translate("addcodeline","Arrays"):
+                    ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Arrays"), self.mainwindow)
+                    ftb.setButtons([    QCoreApplication.translate("addcodeline","ArrayInit"),
+                                        QCoreApplication.translate("addcodeline","Array"),
+                                        QCoreApplication.translate("addcodeline","ArrayStat"),
+                                        QCoreApplication.translate("addcodeline","ArrayLoad"),
+                                        QCoreApplication.translate("addcodeline","ArraySave")
+                                    ])
+                    ftb.setTextSize(3)
+                    try:
+                        ftb.setColumnSplit(3)
+                    except:
+                        pass
                     
-                elif p==QCoreApplication.translate("addcodeline","Shelf"):      self.acl_shelf()
+                    ftb.setBtnTextSize(3)
+                    (t2,p2)=ftb.exec_()
+                    
+                    if   p2==QCoreApplication.translate("addcodeline","ArrayInit"): self.acl_ArrayInit()
+                    elif p2==QCoreApplication.translate("addcodeline","Array"):     self.acl_Array()
+                    elif p2==QCoreApplication.translate("addcodeline","ArrayStat"): self.acl_ArrayStat()
+                    elif p2==QCoreApplication.translate("addcodeline","ArrayLoad"): self.acl_ArrayLoad()
+                    elif p2==QCoreApplication.translate("addcodeline","ArraySave"): self.acl_ArraySave()
+                    
                 elif p==QCoreApplication.translate("addcodeline","QueryVar"):   self.acl_queryVar()  
                 elif p==QCoreApplication.translate("addcodeline","IfVar"):      self.acl_ifVar()                
                 elif p==QCoreApplication.translate("addcodeline","Calc"):       self.acl_calc()
@@ -7732,6 +7755,21 @@ class FtcGuiApplication(TouchApplication):
 
     def acl_rifshift(self):
         self.acl("RIFShift 0")
+        
+    def acl_ArrayInit(self):
+        self.acl("ArrayInit data")
+    
+    def acl_Array(self):
+        self.acl("Array write data 0 integer")
+    
+    def acl_ArrayStat(self):
+        self.acl("ArrayStat integer sizeOf data")
+    
+    def acl_ArrayLoad(self):
+        self.acl("ArrayLoad data filename")
+    
+    def acl_ArraySave(self):
+        self.acl("ArraySave data filename")
     
     def remCodeLine(self):
         row=self.proglist.currentRow()
@@ -7811,6 +7849,11 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "Color":      itm=self.ecl_color(itm, vari)
         elif stack[0] == "Text":       itm=self.ecl_text(itm, vari)
         elif stack[0] == "VarToText":  itm=self.ecl_varToText(itm, vari)
+        elif stack[0] == "ArrayInit":  itm=self.ecl_ArrayInit(itm)
+        elif stack[0] == "Array":      itm=self.ecl_Array(itm, vari)
+        elif stack[0] == "ArrayStat":  itm=self.ecl_ArrayStat(itm, vari)
+        elif stack[0] == "ArrayLoad":  itm=self.ecl_ArrayLoad(itm)
+        elif stack[0] == "ArraySave":  itm=self.ecl_ArraySave(itm)
         
         self.proglist.setCurrentRow(crow)
         self.proglist.item(crow).setText(itm)
@@ -8214,7 +8257,22 @@ class FtcGuiApplication(TouchApplication):
             (v1,v2)=t.exec_()
             return itm
         return editVarToText(itm, vari, self.mainwindow).exec_()
+    
+    def ecl_ArrayInit(self,itm):
+        return "ArrayInit " + clean(TouchAuxKeyboard(QCoreApplication.translate("ecl","ArrayInit"),itm.split()[1],self.mainwindow).exec_(),32)
 
+    def ecl_Array(self, itm, vari):
+        return itm
+    
+    def ecl_ArrayStat(self, itm, vari):
+        return itm
+    
+    def ecl_ArrayLoad(self, itm):
+        return itm
+    
+    def ecl_ArraySave(self, itm):
+        return itm
+    
 #
 # and the initial application launch
 #
