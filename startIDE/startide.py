@@ -505,7 +505,7 @@ class execThread(QThread):
         self.interrupt=-1
         self.timestamp=time.time()
         
-        if 1: #try:
+        try:
             while not self.halt and self.count<len(self.codeList):
                 line=self.codeList[self.count]
                 if self.trace: self.cmdPrint(str(self.count)+":"+line)
@@ -518,7 +518,7 @@ class execThread(QThread):
                     
                 self.count=self.count+1
                 self.parent.processEvents()
-        else: #except:
+        except:
             self.cce=True
             self.halt=True
                 
@@ -654,7 +654,7 @@ class execThread(QThread):
         else:
             self.cmdPrint("DontKnowWhatToDo\nin line:\n"+line)
             self.halt=True
-        
+            
         if time.time()>self.interrupt and self.interrupt>0:
             self.interruptExec()
     
@@ -6337,7 +6337,147 @@ class editVarToText(TouchDialog):
             t=a
         self.value.setText(str(int(t)))
 
+class editArray(TouchDialog):
+    def __init__(self, cmdline, vari, arrays, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","Array"), parent)
+        
+        self.cmdline=cmdline
+        self.variables=vari
+        self.arrays=arrays
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+                
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.timedOut)
+        
+        self.layout=QVBoxLayout()
+        
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Variable:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        
+        self.target=QComboBox()
+        self.target.setStyleSheet("font-size: 18px;")
+        self.target.addItems(self.variables)
 
+        if self.cmdline.split()[1] in self.variables:
+            self.target.setCurrentIndex(self.variables.index(self.cmdline.split()[1]))
+        else:
+            self.target.setCurrentIndex(0)
+
+        h.addWidget(self.target)
+        
+        self.layout.addLayout(h)
+        
+        #
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Action:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        f=["readFrom","writeTo","appendTo","insertTo","removeFrom"]
+        self.data=QComboBox()
+        self.data.setStyleSheet("font-size: 18px;")
+        self.data.addItems(f)
+
+        if self.cmdline.split()[2] in f:
+            self.data.setCurrentIndex(f.index(self.cmdline.split()[2]))
+        else:
+            self.data.setCurrentIndex(0)        
+
+        h.addWidget(self.data)
+        
+        self.layout.addLayout(h)
+
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Array:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        
+        self.array=QComboBox()
+        self.array.setStyleSheet("font-size: 18px;")
+        self.array.addItems(self.arrays)
+
+        if self.cmdline.split()[3] in self.arrays:
+            self.array.setCurrentIndex(self.arrays.index(self.cmdline.split()[3]))
+        else:
+            self.array.setCurrentIndex(0)
+
+        h.addWidget(self.array)
+
+        self.layout.addLayout(h)
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl","at index"))
+        l.setStyleSheet("font-size: 18px;")
+        self.layout.addWidget(l)     
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 18px;")
+            
+        self.value.setText(self.cmdline.split()[4])
+        self.value.mousePressEvent=self.valPress
+        self.value.mouseReleaseEvent=self.valRelease
+        self.layout.addWidget(self.value)
+        
+        self.layout.addStretch()
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+
+    def on_confirm(self):
+        self.cmdline = "Array " +self.target.itemText(self.target.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.data.itemText(self.data.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.array.itemText(self.array.currentIndex()) + " "
+        if self.data.itemText(self.data.currentIndex()) == "appendTo":
+            self.cmdline = self.cmdline + "0"
+        else:
+            self.cmdline = self.cmdline + self.value.text()
+
+        self.close()
+ 
+    def valPress(self,sender):
+        if self.timer.isActive(): self.timer.stop()
+        self.btnTimedOut=False
+        self.timer.start(500)
+    
+    def timedOut(self):
+        self.btnTimedOut=True
+        self.timer.stop()
+        self.value.setText(queryVarName(self.variables,self.value.text()))  
+    
+    def valRelease(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            try:
+                int(self.value.text())
+            except:
+                self.value.setText("0")  
+            self.getValue(1)
+    
+    def ifChanged(self):
+        pass        
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Index"),a,self).exec_()
+        try:
+            int(t)
+        except:
+            t=a
+        self.value.setText(str(int(t)))
 
 #
 # main GUI application
@@ -7760,7 +7900,7 @@ class FtcGuiApplication(TouchApplication):
         self.acl("ArrayInit data")
     
     def acl_Array(self):
-        self.acl("Array write data 0 integer")
+        self.acl("Array integer writeTo data 0")
     
     def acl_ArrayStat(self):
         self.acl("ArrayStat integer sizeOf data")
@@ -8262,7 +8402,21 @@ class FtcGuiApplication(TouchApplication):
         return "ArrayInit " + clean(TouchAuxKeyboard(QCoreApplication.translate("ecl","ArrayInit"),itm.split()[1],self.mainwindow).exec_(),32)
 
     def ecl_Array(self, itm, vari):
-        return itm
+        arrays=[]
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="ArrayInit": arrays.append(self.proglist.item(i).text().split()[1])
+  
+        if len(arrays)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","Array"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
+        
+        return editArray(itm, vari, arrays, self.mainwindow).exec_()
     
     def ecl_ArrayStat(self, itm, vari):
         return itm
