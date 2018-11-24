@@ -6569,7 +6569,142 @@ class editArrayStat(TouchDialog):
 
         self.close()
 
+class editArrayLoad(TouchDialog):
+    def __init__(self, cmdline, arrays, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","ArrayLoad"), parent)
+        
+        self.cmdline=cmdline
+        self.arrays=arrays
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
 
+        
+        self.layout=QVBoxLayout()
+        
+        #
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Filename:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        f=["userSelect","byName"]
+        self.data=QComboBox()
+        self.data.setStyleSheet("font-size: 18px;")
+        self.data.addItems(f)
+
+        if self.cmdline.split()[2] in f:
+            self.data.setCurrentIndex(f.index(self.cmdline.split()[2]))
+        else:
+            self.data.setCurrentIndex(0)        
+
+        h.addWidget(self.data)
+        
+        self.layout.addLayout(h)
+
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Array:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        
+        self.array=QComboBox()
+        self.array.setStyleSheet("font-size: 18px;")
+        self.array.addItems(self.arrays)
+
+        if self.cmdline.split()[1] in self.arrays:
+            self.array.setCurrentIndex(self.arrays.index(self.cmdline.split()[1]))
+        else:
+            self.array.setCurrentIndex(0)
+
+        h.addWidget(self.array)
+
+        self.layout.addLayout(h)
+        self.layout.addStretch()
+        
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+
+    def on_confirm(self):
+        self.cmdline = "ArrayLoad " + self.array.itemText(self.array.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.data.itemText(self.data.currentIndex()) + " "
+
+        self.close()
+class editArraySave(TouchDialog):
+    def __init__(self, cmdline, arrays, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","ArraySave"), parent)
+        
+        self.cmdline=cmdline
+        self.arrays=arrays
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+
+        
+        self.layout=QVBoxLayout()
+        
+        #
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "File:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        f=["replace","rename"]
+        self.data=QComboBox()
+        self.data.setStyleSheet("font-size: 18px;")
+        self.data.addItems(f)
+
+        if self.cmdline.split()[2] in f:
+            self.data.setCurrentIndex(f.index(self.cmdline.split()[2]))
+        else:
+            self.data.setCurrentIndex(0)        
+
+        h.addWidget(self.data)
+        
+        self.layout.addLayout(h)
+
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Array:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        
+        self.array=QComboBox()
+        self.array.setStyleSheet("font-size: 18px;")
+        self.array.addItems(self.arrays)
+
+        if self.cmdline.split()[1] in self.arrays:
+            self.array.setCurrentIndex(self.arrays.index(self.cmdline.split()[1]))
+        else:
+            self.array.setCurrentIndex(0)
+
+        h.addWidget(self.array)
+
+        self.layout.addLayout(h)
+        self.layout.addStretch()
+        
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+
+    def on_confirm(self):
+        self.cmdline = "ArraySave " + self.array.itemText(self.array.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.data.itemText(self.data.currentIndex()) + " "
+
+        self.close()
 #
 # main GUI application
 #
@@ -7997,10 +8132,10 @@ class FtcGuiApplication(TouchApplication):
         self.acl("ArrayStat integer sizeOf data")
     
     def acl_ArrayLoad(self):
-        self.acl("ArrayLoad data filename")
+        self.acl("ArrayLoad data byName")
     
     def acl_ArraySave(self):
-        self.acl("ArraySave data filename")
+        self.acl("ArraySave data replace")
     
     def remCodeLine(self):
         row=self.proglist.currentRow()
@@ -8545,10 +8680,38 @@ class FtcGuiApplication(TouchApplication):
         return editArrayStat(itm, vari, arrays, self.mainwindow).exec_()
     
     def ecl_ArrayLoad(self, itm):
-        return itm
+        arrays=[]
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="ArrayInit": arrays.append(self.proglist.item(i).text().split()[1])
+  
+        if len(arrays)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","ArrayLoad"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exe
+            return itm
+    
+        return editArrayLoad(itm, arrays, self.mainwindow).exec_()
     
     def ecl_ArraySave(self, itm):
-        return itm
+        arrays=[]
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="ArrayInit": arrays.append(self.proglist.item(i).text().split()[1])
+  
+        if len(arrays)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","ArraySave"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exe
+            return itm
+        
+        return editArraySave(itm, arrays, self.mainwindow).exec_()
     
 #
 # and the initial application launch
