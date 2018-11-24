@@ -6479,6 +6479,97 @@ class editArray(TouchDialog):
             t=a
         self.value.setText(str(int(t)))
 
+class editArrayStat(TouchDialog):
+    def __init__(self, cmdline, vari, arrays, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","ArrayStat"), parent)
+        
+        self.cmdline=cmdline
+        self.variables=vari
+        self.arrays=arrays
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+
+        
+        self.layout=QVBoxLayout()
+        
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Variable:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        
+        self.target=QComboBox()
+        self.target.setStyleSheet("font-size: 18px;")
+        self.target.addItems(self.variables)
+
+        if self.cmdline.split()[1] in self.variables:
+            self.target.setCurrentIndex(self.variables.index(self.cmdline.split()[1]))
+        else:
+            self.target.setCurrentIndex(0)
+
+        h.addWidget(self.target)
+        
+        self.layout.addLayout(h)
+        
+        #
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Function:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        f=["sizeOf","min","max","mean","sigma"]
+        self.data=QComboBox()
+        self.data.setStyleSheet("font-size: 18px;")
+        self.data.addItems(f)
+
+        if self.cmdline.split()[2] in f:
+            self.data.setCurrentIndex(f.index(self.cmdline.split()[2]))
+        else:
+            self.data.setCurrentIndex(0)        
+
+        h.addWidget(self.data)
+        
+        self.layout.addLayout(h)
+
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Array:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        
+        self.array=QComboBox()
+        self.array.setStyleSheet("font-size: 18px;")
+        self.array.addItems(self.arrays)
+
+        if self.cmdline.split()[3] in self.arrays:
+            self.array.setCurrentIndex(self.arrays.index(self.cmdline.split()[3]))
+        else:
+            self.array.setCurrentIndex(0)
+
+        h.addWidget(self.array)
+
+        self.layout.addLayout(h)
+        self.layout.addStretch()
+        
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+
+    def on_confirm(self):
+        self.cmdline = "ArrayStat " +self.target.itemText(self.target.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.data.itemText(self.data.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.array.itemText(self.array.currentIndex()) + " "
+
+        self.close()
+
+
 #
 # main GUI application
 #
@@ -8415,11 +8506,43 @@ class FtcGuiApplication(TouchApplication):
             t.setPosButton(QCoreApplication.translate("ecl","Okay"))
             (v1,v2)=t.exec_()
             return itm
+        if len(vari)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","Array"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
         
         return editArray(itm, vari, arrays, self.mainwindow).exec_()
     
     def ecl_ArrayStat(self, itm, vari):
-        return itm
+        arrays=[]
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="ArrayInit": arrays.append(self.proglist.item(i).text().split()[1])
+  
+        if len(arrays)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","ArrayStat"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
+        if len(vari)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","ArrayStat"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
+        
+        return editArrayStat(itm, vari, arrays, self.mainwindow).exec_()
     
     def ecl_ArrayLoad(self, itm):
         return itm
