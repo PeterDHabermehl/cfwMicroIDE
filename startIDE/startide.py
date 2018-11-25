@@ -226,22 +226,29 @@ class execThread(QThread):
         extmodfailure=False
         RS=False
         
+        self.arrays=[]
+        self.array=[]
+        
         for line in self.codeList:
             a=line.split()
             if len(a)<2: a.append("x")
             
-            if "TXT" in a[1]:
+            if a[0]=="ArrayInit"and not a[1] in self.arrays:
+                self.arrays.append(a[1])
+                self.array.append([])
+                
+            elif "TXT" in a[1]:
                 self.requireTXT=True
-            if "RIF" in a[1]:
+            elif "RIF" in a[1]:
                 self.requireRIF=True
-            if "FTD" in a[1]:
+            elif "FTD" in a[1]:
                 self.requireFTD=True
-            if "Tag" in line[:3]: 
+            elif a[0]=="Tag": 
                 self.jmpTable.append([line[4:], cnt])
-            elif "Module" in line[:6]:
+            elif a[0]=="Module":
                 self.modTable.append([line[7:], cnt])
                 mcnt=mcnt+1
-            elif "MEnd" in line[:4]:
+            elif a[0]=="MEnd":
                 mcnt=mcnt-1
             elif a[0] == "CallExt" and not (a[1] in self.impmod):
                 try:
@@ -260,7 +267,7 @@ class execThread(QThread):
             #
             # configure i/o of the devices:
             #
-            if a[0]=="RIFShift":
+            elif a[0]=="RIFShift":
                 if int(a[1])>0:
                     RS=True
                 else:
@@ -650,6 +657,8 @@ class execThread(QThread):
         elif stack[0]== "RIFShift": self.RIFShift=int(stack[1])
         elif stack[0]== "WaitForTouch": self.cmdWaitForTouch()
         elif stack[0]== "WaitForRelease": self.cmdWaitForRelease()
+        elif stack[0]== "ArrayInit":    self.cmdArrayInit(stack)
+        elif stack[0]== "Array":        self.cmdArray(stack)
         
         else:
             self.cmdPrint("DontKnowWhatToDo\nin line:\n"+line)
@@ -697,6 +706,64 @@ class execThread(QThread):
         if not self.touched: self.released=False        
         while self.released==False and not self.halt:
             self.parent.processEvents()
+    
+    def cmdArrayInit(self,stack):
+        if stack[1] in self.arrays:
+            self.array[ self.arrays.index(stack[1]) ] = []
+        else:
+            self.halt=True
+            self.cmdPrint("Array '" + stack[1] + "'\nreferenced without\nArrayInit!\nProgram terminated")
+    
+    def cmdArray(self,stack):
+        var=stack[1]
+        val=self.getVal(var)
+        arr=stack[3]
+        idx=self.getVal(stack[4])
+
+        if not (arr in self.arrays):
+            self.cmdPrint("Array '" + stack[1] + "'\nreferenced without\nArrayInit!\nProgram terminated")
+            self.halt=True
+
+        if self.halt: return
+    
+        if stack[2]=="appendTo":
+            self.array[self.arrays.index(arr)].append(val)
+        elif stack[2]=="writeTo":
+            if idx<len(self.array[self.arrays.index(arr)]) and (idx>=0): self.array[self.arrays.index(arr)][idx]=val
+            else:
+                self.halt=True
+                self.cmdPrint("Index exceeded\nactual array size!\nProgram terminated")
+        elif stack[2]=="readFrom":
+            if idx<len(self.array[self.arrays.index(arr)]) and (idx>=0):
+                cc=0
+                for i in self.memory:
+                    if i[0]==var:
+                        self.memory[cc][1] = self.array[self.arrays.index(arr)][idx]
+                        break
+                    cc=cc+1            
+            else:
+                self.halt=True
+                self.cmdPrint("Index exceeded\nactual array size!\nProgram terminated")
+        elif stack[2]=="insertTo":
+            if idx<len(self.array[self.arrays.index(arr)]) and (idx>=0): self.array[self.arrays.index(arr)].insert(idx, val)  
+            else:
+                self.halt=True
+                self.cmdPrint("Index exceeded\nactual array size!\nProgram terminated")
+        elif stack[2]=="removeFrom":
+            if idx<len(self.array[self.arrays.index(arr)]) and (idx>=0):
+                cc=0
+                for i in self.memory:
+                    if i[0]==var:
+                        self.memory[cc][1] = self.array[self.arrays.index(arr)][idx]
+                        del self.array[self.arrays.index(arr)][idx]
+                        break
+                    cc=cc+1            
+            else:
+                self.halt=True
+                self.cmdPrint("Index exceeded\nactual array size!\nProgram terminated")
+            
+        print(self.array)
+
     
     def cmdInterrupt(self,stack):
         if stack[1]=="Off":
