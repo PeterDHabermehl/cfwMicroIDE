@@ -531,9 +531,12 @@ class execThread(QThread):
                 
         if not self.halt: self.msgOut("<End>")
         else: 
-            if self.cce: self.msgOut("CompleteConfusionError\nin line "+str(self.count)+":\n"+self.codeList[self.count])
-            self.msgOut("<Break>")
-        
+            if self.cce:
+                self.msgOut("CompleteConfusionError\nin code:\n"+self.codeList[self.count])
+                self.msgOut("<Break in line "+str(self.count)+">")
+            else:
+                self.msgOut("<Break in line "+str(self.count)+">")
+                
         try:
             if self.logging: self.logfile.close()
         except:
@@ -659,9 +662,12 @@ class execThread(QThread):
         elif stack[0]== "WaitForRelease": self.cmdWaitForRelease()
         elif stack[0]== "ArrayInit":    self.cmdArrayInit(stack)
         elif stack[0]== "Array":        self.cmdArray(stack)
+        elif stack[0]== "ArrayStat":    self.cmdArrayStat(stack)
+        elif stack[0]== "ArrayLoad":    self.cmdArrayLoad(stack)
+        elif stack[0]== "ArraySave":    self.cmdArraySave(stack)
         
         else:
-            self.cmdPrint("DontKnowWhatToDo\nin line:\n"+line)
+            self.cmdPrint("DontKnowWhatToDo\nin code:\n"+line)
             self.halt=True
             
         if time.time()>self.interrupt and self.interrupt>0:
@@ -707,6 +713,67 @@ class execThread(QThread):
         while self.released==False and not self.halt:
             self.parent.processEvents()
     
+    def cmdArraySave(self, stack):
+        if stack[1] in self.arrays:
+            if stack[2]=="replace": fname=logdir+stack[1]+".arr"
+            else: fname=logdir+stack[1]+time.strftime("%Y%m%d-%H%M%S")+".arr"
+            
+            if os.path.exists(fname) and stack[2]=="rename": 
+                self.cmdPrint("Error saving array '"+stack[1]+"'.")
+                return
+            
+            if 1: #try:
+                expfile=open(fname,"w",encoding="utf-8")
+                for i in self.array[self.arrays.index(stack[1])]:
+                    expfile.write(str(i)+";")
+                expfile.close()    
+            else:#except:
+                self.cmdPrint("Error saving array '"+stack[1]+"'.")
+                    
+        else:
+            self.halt=True
+            self.cmdPrint("Array '" + stack[1] + "'\nreferenced without\nArrayInit!\nProgram terminated")        
+    
+    def cmdArrayLoad(self, stack):
+        if stack[1] in self.arrays:
+            if stack[2]=="byName": fname=logdir+stack[1]+".arr"
+            else:
+                files=os.listdir(logdir)
+                for i in files: 
+                    if i[-4:]!=".arr": files.remove(i)
+                
+                files.sort()
+                print(files)
+                
+                if len(files)>0:
+                    (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","Load"),QCoreApplication.translate("ecl","Array"),files,files[0],"Okay", None).exec_()
+                else:
+                    s=False
+                    
+                if not s: 
+                    self.cmdPrint("Error loading array '"+stack[1]+"'.")
+                    return
+            
+                fname=logdir+r
+                
+            if os.path.exists(fname):
+                impfile=open(fname,"r",encoding="utf-8")
+                print("impf:",impfile)
+                t=impfile.read().split(";")
+                t.pop()
+                for i in range(0,len(t)):
+                    t[i]=int(t[i])
+                self.array[self.arrays.index(stack[1])]=t
+                print(self.array[self.arrays.index(stack[1])])
+                impfile.close()
+            else:
+                self.cmdPrint("Error loading array '"+stack[1]+"'.")
+                return
+                
+        else:
+            self.halt=True
+            self.cmdPrint("Array '" + stack[1] + "'\nreferenced without\nArrayInit!\nProgram terminated") 
+            
     def cmdArrayInit(self,stack):
         if stack[1] in self.arrays:
             self.array[ self.arrays.index(stack[1]) ] = []
@@ -761,10 +828,55 @@ class execThread(QThread):
             else:
                 self.halt=True
                 self.cmdPrint("Index exceeded\nactual array size!\nProgram terminated")
-            
-        print(self.array)
+                
+    def cmdArrayStat(self,stack):
+        var=stack[1]
+        val=self.getVal(var)
+        arr=stack[3]
 
-    
+        if not (arr in self.arrays):
+            self.cmdPrint("Array '" + stack[1] + "'\nreferenced without\nArrayInit!\nProgram terminated")
+            self.halt=True
+
+        if self.halt: return
+        
+        # "sizeOf","min","max","mean","sigma"
+
+        if stack[2]=="sizeOf":
+            cc=0
+            for i in self.memory:
+                if i[0]==var:
+                    self.memory[cc][1] = len(self.array[self.arrays.index(arr)])
+                    break
+                cc=cc+1            
+        elif stack[2]=="min":
+            cc=0
+            for i in self.memory:
+                if i[0]==var:
+                    self.memory[cc][1] = min(self.array[self.arrays.index(arr)])
+                    break
+                cc=cc+1         
+        elif stack[2]=="max":
+            cc=0
+            for i in self.memory:
+                if i[0]==var:
+                    self.memory[cc][1] = max(self.array[self.arrays.index(arr)])
+                    break
+                cc=cc+1  
+        elif stack[2]=="mean":
+            mean=0
+            for i in range(0, len(self.array[self.arrays.index(arr)])):
+                mean=mean+self.array[self.arrays.index(arr)][i]
+                
+            mean=mean//len(self.array[self.arrays.index(arr)])
+            
+            cc=0
+            for i in self.memory:
+                if i[0]==var:
+                    self.memory[cc][1] = mean
+                    break
+                cc=cc+1
+                
     def cmdInterrupt(self,stack):
         if stack[1]=="Off":
             self.interrupt=-1
@@ -1481,8 +1593,8 @@ class execThread(QThread):
             time.sleep(0.001)
         
         self.sleeper.cancel()
-        if self.halt:
-            self.count=len(self.codeList)
+        # if self.halt:
+        #    self.count=len(self.codeList)
             
 
     def wake(self):
@@ -6589,7 +6701,7 @@ class editArrayStat(TouchDialog):
         l.setStyleSheet("font-size: 18px;")
         
         h.addWidget(l)
-        f=["sizeOf","min","max","mean","sigma"]
+        f=["sizeOf","min","max","mean"]
         self.data=QComboBox()
         self.data.setStyleSheet("font-size: 18px;")
         self.data.addItems(f)
