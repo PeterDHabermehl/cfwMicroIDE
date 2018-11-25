@@ -146,6 +146,7 @@ class execThread(QThread):
     requestKeyboard=pyqtSignal(int, str)
     requestDial=pyqtSignal(str, int, int, int, str)
     requestBtn=pyqtSignal(str, str, list)
+    requestArray=pyqtSignal(list)
     canvasSig=pyqtSignal(str)
     
     def __init__(self, codeList, output, starter, RIF,TXT,FTD, parent):
@@ -511,7 +512,7 @@ class execThread(QThread):
         
         self.interrupt=-1
         self.timestamp=time.time()
-        
+        #if 1:
         try:
             while not self.halt and self.count<len(self.codeList):
                 line=self.codeList[self.count]
@@ -525,6 +526,7 @@ class execThread(QThread):
                     
                 self.count=self.count+1
                 self.parent.processEvents()
+        #else:
         except:
             self.cce=True
             self.halt=True
@@ -722,12 +724,12 @@ class execThread(QThread):
                 self.cmdPrint("Error saving array '"+stack[1]+"'.")
                 return
             
-            if 1: #try:
+            try:
                 expfile=open(fname,"w",encoding="utf-8")
                 for i in self.array[self.arrays.index(stack[1])]:
                     expfile.write(str(i)+";")
                 expfile.close()    
-            else:#except:
+            except:
                 self.cmdPrint("Error saving array '"+stack[1]+"'.")
                     
         else:
@@ -743,10 +745,14 @@ class execThread(QThread):
                     if i[-4:]!=".arr": files.remove(i)
                 
                 files.sort()
-                print(files)
                 
                 if len(files)>0:
-                    (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","Load"),QCoreApplication.translate("ecl","Array"),files,files[0],"Okay", None).exec_()
+                    self.msg=0
+                    self.requestArray.emit(files)
+                    while self.msg==0:
+                        time.sleep(0.01)
+                    r=self.imesg
+                    s=True  
                 else:
                     s=False
                     
@@ -755,16 +761,14 @@ class execThread(QThread):
                     return
             
                 fname=logdir+r
-                
+            
             if os.path.exists(fname):
                 impfile=open(fname,"r",encoding="utf-8")
-                print("impf:",impfile)
                 t=impfile.read().split(";")
                 t.pop()
                 for i in range(0,len(t)):
                     t[i]=int(t[i])
                 self.array[self.arrays.index(stack[1])]=t
-                print(self.array[self.arrays.index(stack[1])])
                 impfile.close()
             else:
                 self.cmdPrint("Error loading array '"+stack[1]+"'.")
@@ -7561,6 +7565,7 @@ class FtcGuiApplication(TouchApplication):
                 self.et.requestKeyboard.connect(self.requestKeyboard)
                 self.et.requestDial.connect(self.requestDial)
                 self.et.requestBtn.connect(self.requestButton)
+                self.et.requestArray.connect(self.requestArray)
                 self.et.canvasSig.connect(self.canvasSig)
                 self.et.start() 
             else:
@@ -7808,6 +7813,16 @@ class FtcGuiApplication(TouchApplication):
         
         if s:
             self.IMsgBack.emit(str(buttons.index(r)+1))
+        else:
+            self.IMsgBack.emit("-1")
+        self.msgBack.emit(1)
+
+    def requestArray(self, files):
+   
+        (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","Load"),QCoreApplication.translate("ecl","Array"),files,files[0],"Okay", self.mainwindow).exec_()
+        
+        if s:
+            self.IMsgBack.emit(r)
         else:
             self.IMsgBack.emit("-1")
         self.msgBack.emit(1)
