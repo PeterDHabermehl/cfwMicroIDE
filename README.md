@@ -1,5 +1,5 @@
 # startIDE
-An app to provide an onboard IDE for *very* simple projects (just switch outputs depending on an input...)
+An app to provide an onboard IDE to control a wide variety of different models.
 
 ----------------------------
 See the ftcommunity board threads:
