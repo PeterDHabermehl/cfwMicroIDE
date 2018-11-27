@@ -1,5 +1,5 @@
 # startIDE
-An app to provide an onboard IDE to control a wide variety of different models.
+An app for the [ftcommunity firmware](http://cfw.ftcommunity.de/) on TXT controller or [TX-Pi](https://github.com/harbaum/tx-pi) to provide an onboard IDE to control a wide variety of different models.
 
 ----------------------------
 See the ftcommunity board threads:
@@ -23,10 +23,13 @@ Encoder Motors connected to TXT also can be controlled (speed, direction and run
 
 ![Motor control](ddoc/screenshots/startIDE03.png)
 
-Although it is pysically possible to connect more than one interface, startIDE will only address the first IF found.
+Although it is pysically possible to connect more than one interface of the same type, startIDE will only address the first IF found.
 
-When run on ft TXT controller, it is possible to use TXT and a connected Robo family device in parallel.
+When run on ft TXT controller, it is possible to use TXT and a connected Robo family device and a ftDuino*) in parallel.
+Running startIDE on the TX-Pi allows for having Robo family device and ftDuino connected in parallel.
 
 A german user guide (Handbuch) is available: [ddoc/Manual_150_de.pdf](ddoc/Manual_150_de.pdf)
 
 See [ddoc/ReferenceSheet](ddoc/ReferenceSheet.pdf) for a list of functions implemented.
+
+*) to use the ftDuino as an I/O module, it must be flashed with the ftduino_direct sketch, available [here](https://github.com/PeterDHabermehl/ftduino_direct) or directly within the flash app [ftDuinIO](https://github.com/PeterDHabermehl/ftDuinIO)
