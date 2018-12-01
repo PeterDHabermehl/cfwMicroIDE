@@ -844,7 +844,7 @@ class execThread(QThread):
 
         if self.halt: return
         
-        # "sizeOf","min","max","mean","sigma"
+        # "sizeOf","min","max","mean","minIdx","maxIdx"
 
         if stack[2]=="sizeOf":
             cc=0
@@ -881,6 +881,17 @@ class execThread(QThread):
                     break
                 cc=cc+1
                 
+        elif stack[2]=="maxIdx" or stack[2]=="minIdx":
+            if stack[2]=="maxIdx": t=max(self.array[self.arrays.index(arr)])
+            else:  t=min(self.array[self.arrays.index(arr)])   
+            
+            cc=0
+            for i in self.memory:
+                if i[0]==var:
+                    self.memory[cc][1] = self.array[self.arrays.index(arr)].index(t)
+                    break
+                cc=cc+1            
+            
     def cmdInterrupt(self,stack):
         if stack[1]=="Off":
             self.interrupt=-1
@@ -6705,7 +6716,7 @@ class editArrayStat(TouchDialog):
         l.setStyleSheet("font-size: 18px;")
         
         h.addWidget(l)
-        f=["sizeOf","min","max","mean"]
+        f=["sizeOf","min","max","mean","minIdx","maxIdx"]
         self.data=QComboBox()
         self.data.setStyleSheet("font-size: 18px;")
         self.data.addItems(f)
