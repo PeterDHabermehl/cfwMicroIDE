@@ -39,11 +39,12 @@ IGNOREMISSING=False
 #FTTXTADDRESS="192.168.178.24"
 FTTXTADDRESS="auto"
 
-hostdir = os.path.dirname(os.path.realpath(__file__)) + "/"
-projdir = hostdir + "projects/"
-moddir  = hostdir + "modules/"
-logdir  = hostdir + "logfiles/"
-pixdir  = hostdir + "pixmaps/"
+hostdir = os.path.dirname(os.path.realpath(__file__))
+projdir = os.path.join(hostdir , "projects")
+moddir  = os.path.join(hostdir , "modules")
+logdir  = os.path.join(hostdir , "logfiles")
+pixdir  = os.path.join(hostdir , "pixmaps")
+arrdir  = os.path.join(hostdir,"arrays")
 
 if not os.path.exists(projdir):
     os.mkdir(projdir)
@@ -51,9 +52,11 @@ if not os.path.exists(moddir):
     os.mkdir(moddir)
 if not os.path.exists(logdir):
     os.mkdir(logdir)
-    
+if not os.path.exists(arrdir):
+    os.mkdir(arrdir)
+
 try:
-    with open(hostdir+"manifest","r", encoding="utf-8") as f:
+    with open( os.path.join(hostdir, "manifest") ,"r", encoding="utf-8") as f:
         r=f.readline()
         while not "version" in r:
           r=f.readline()
@@ -70,7 +73,7 @@ except:
 #
 
 try:
-    with open(hostdir+".locale","w") as f:
+    with open(os.path.join(hostdir, ".locale") ,"w") as f:
         r=f.write(translator.getActiveLocale())
         f.close()
 except:
@@ -233,12 +236,8 @@ class execThread(QThread):
         for line in self.codeList:
             a=line.split()
             if len(a)<2: a.append("x")
-            
-            if a[0]=="ArrayInit"and not a[1] in self.arrays:
-                self.arrays.append(a[1])
-                self.array.append([])
                 
-            elif "TXT" in a[1]:
+            if "TXT" in a[1]:
                 self.requireTXT=True
             elif "RIF" in a[1]:
                 self.requireRIF=True
@@ -253,7 +252,7 @@ class execThread(QThread):
                 mcnt=mcnt-1
             elif a[0] == "CallExt" and not (a[1] in self.impmod):
                 try:
-                    with open(moddir+a[1],"r", encoding="utf-8") as f:
+                    with open(os.path.join(moddir,a[1]),"r", encoding="utf-8") as f:
                         module=json.load(f)
                         f.close()
                     nmp = len(self.codeList)
@@ -667,6 +666,7 @@ class execThread(QThread):
         elif stack[0]== "ArrayStat":    self.cmdArrayStat(stack)
         elif stack[0]== "ArrayLoad":    self.cmdArrayLoad(stack)
         elif stack[0]== "ArraySave":    self.cmdArraySave(stack)
+        elif stack[0]== "QueryArray":   self.cmdQueryArray(stack)
         
         else:
             self.cmdPrint("DontKnowWhatToDo\nin code:\n"+line)
@@ -714,11 +714,22 @@ class execThread(QThread):
         if not self.touched: self.released=False        
         while self.released==False and not self.halt:
             self.parent.processEvents()
+
+    def cmdQueryArray(self, stack):
+        if stack[1] in self.arrays:
+            st=stack[1]+": "
+            for i in self.array[self.arrays.index(stack[1])]:
+                st=st+str(i)+";"
+            self.cmdPrint(st[:-1])
+                    
+        else:
+            self.halt=True
+            self.cmdPrint("Array '" + stack[1] + "'\nreferenced without\nArrayInit!\nProgram terminated") 
     
     def cmdArraySave(self, stack):
         if stack[1] in self.arrays:
-            if stack[2]=="replace": fname=logdir+stack[1]+".arr"
-            else: fname=logdir+stack[1]+time.strftime("%Y%m%d-%H%M%S")+".arr"
+            if stack[2]=="replace": fname=os.path.join(arrdir, stack[1]+".arr")
+            else: fname=os.path.join(arrdir, stack[1]+time.strftime("%Y%m%d-%H%M%S")+".arr")
             
             if os.path.exists(fname) and stack[2]=="rename": 
                 self.cmdPrint("Error saving array '"+stack[1]+"'.")
@@ -738,9 +749,9 @@ class execThread(QThread):
     
     def cmdArrayLoad(self, stack):
         if stack[1] in self.arrays:
-            if stack[2]=="byName": fname=logdir+stack[1]+".arr"
+            if stack[2]=="byName": fname=os.path.join(arrdir, stack[1]+".arr")
             else:
-                files=os.listdir(logdir)
+                files=os.listdir(arrdir)
                 for i in files: 
                     if i[-4:]!=".arr": files.remove(i)
                 
@@ -760,7 +771,7 @@ class execThread(QThread):
                     self.cmdPrint("Error loading array '"+stack[1]+"'.")
                     return
             
-                fname=logdir+r
+                fname=os.path.join(arrdir, r)
             
             if os.path.exists(fname):
                 impfile=open(fname,"r",encoding="utf-8")
@@ -782,8 +793,8 @@ class execThread(QThread):
         if stack[1] in self.arrays:
             self.array[ self.arrays.index(stack[1]) ] = []
         else:
-            self.halt=True
-            self.cmdPrint("Array '" + stack[1] + "'\nreferenced without\nArrayInit!\nProgram terminated")
+            self.arrays.append(stack[1])
+            self.array.append([])
     
     def cmdArray(self,stack):
         var=stack[1]
@@ -1340,7 +1351,7 @@ class execThread(QThread):
                 pass
             
             try:
-                lfn=logdir+"log"+time.strftime("%Y%m%d-%H%M%S")+".txt"
+                lfn=os.path.join(logdir, "log"+time.strftime("%Y%m%d-%H%M%S")+".txt")
                 while os.path.exists(lfn):
                     lfn=lfn+"-"
                 self.logfile=open(lfn,"w",encoding="utf-8")
@@ -6942,15 +6953,15 @@ class FtcGuiApplication(TouchApplication):
         # load last project
         
         try:
-            with open(hostdir+".lastproject","r", encoding="utf-8") as f:
+            with open( os.path.join(hostdir, ".lastproject"), "r", encoding="utf-8") as f:
                 [self.codeName,self.codeSaved]=json.load(f)
             
             if not self.codeSaved:
-                with open(hostdir+".autosave","r", encoding="utf-8") as f:
+                with open( os.path.join(hostdir, ".autosave"),"r", encoding="utf-8") as f:
                     self.code=json.load(f)                
-                os.remove(hostdir+".autosave")
+                os.remove(os.path.join(hostdir,".autosave"))
             else:
-                with open(projdir+self.codeName,"r", encoding="utf-8") as f:
+                with open(os.path.join(projdir, self.codeName),"r", encoding="utf-8") as f:
                     self.code=json.load(f)
         except:
             self.code=["# new"]
@@ -7114,16 +7125,16 @@ class FtcGuiApplication(TouchApplication):
         
         self.mainwindow.show()
         try:
-            if os.path.isfile(hostdir+".01_firstrun"):
+            if os.path.isfile(os.path.join(hostdir,".01_firstrun")):
                 t=TouchMessageBox("first run", self.mainwindow)
                 t.setCancelButton()
-                with open(hostdir+".01_firstrun", "r", encoding="utf-8") as f:
+                with open(os.path.join(hostdir,".01_firstrun"), "r", encoding="utf-8") as f:
                     msg=f.read()
                     f.close()
                 t.setText(msg)
                 t.exec_()
                 
-                os.remove(hostdir+".01_firstrun")
+                os.remove(os.path.join(hostdir,".01_firstrun"))
         except:
             pass
         
@@ -7141,11 +7152,11 @@ class FtcGuiApplication(TouchApplication):
         self.codeFromListWidget()
         
         if not self.codeSaved:
-            with open(hostdir+".autosave","w", encoding="utf-8") as f:
+            with open(os.path.join(hostdir,".autosave"),"w", encoding="utf-8") as f:
                 json.dump(self.code,f)
                 f.close()           
         
-        with open(hostdir+".lastproject", "w", encoding="utf-8") as f:
+        with open(os.path.join(hostdir, ".lastproject"), "w", encoding="utf-8") as f:
             json.dump([self.codeName, self.codeSaved],f)
 
 
@@ -7163,8 +7174,8 @@ class FtcGuiApplication(TouchApplication):
         if v2==QCoreApplication.translate("m_about","News"):
             t=TouchMessageBox(QCoreApplication.translate("m_about","News"), self.mainwindow)
             t.setCancelButton()
-            if os.path.isfile(hostdir+".00_news"):
-                with open(hostdir+".00_news","r") as f:
+            if os.path.isfile(os.path.join(hostdir,".00_news")):
+                with open(os.path.join(hostdir, ".00_news"),"r") as f:
                     text=f.read()
                     f.close()
             else: text="No news found."
@@ -7239,7 +7250,7 @@ class FtcGuiApplication(TouchApplication):
             
         if not s: return
     
-        with open(projdir+r,"r", encoding="utf-8") as f:
+        with open(os.path.join(projdir,r),"r", encoding="utf-8") as f:
             self.code=json.load(f)
             f.close()
         
@@ -7258,7 +7269,7 @@ class FtcGuiApplication(TouchApplication):
         
         if not s: return
         pfn=r
-        if os.path.isfile(projdir+pfn):
+        if os.path.isfile(os.path.join(projdir,pfn)):
             t=TouchMessageBox(QCoreApplication.translate("m_project","Save"), self.mainwindow)
             t.setCancelButton()
             t.setText(QCoreApplication.translate("m_project","A file with this name already exists. Do you want to overwrite it?"))
@@ -7271,7 +7282,7 @@ class FtcGuiApplication(TouchApplication):
         
         self.codeFromListWidget()
         
-        with open(projdir+pfn,"w", encoding="utf-8") as f:
+        with open(os.path.join(projdir,pfn),"w", encoding="utf-8") as f:
             
             json.dump(self.code,f)
             f.close()
@@ -7306,7 +7317,7 @@ class FtcGuiApplication(TouchApplication):
             
         if v2 !=  QCoreApplication.translate("m_project","Yes"): return
         
-        os.remove(projdir+r)
+        os.remove(os.path.join(projdir,r))
         
         if self.codeName==r: self.codeSaved=False
 
@@ -7343,7 +7354,7 @@ class FtcGuiApplication(TouchApplication):
             
         if not s: return
     
-        with open(moddir+r,"r", encoding="utf-8") as f:
+        with open(os.path.join(moddir,r),"r", encoding="utf-8") as f:
             module=json.load(f)
         
         self.codeFromListWidget()
@@ -7416,7 +7427,7 @@ class FtcGuiApplication(TouchApplication):
             cnt=cnt+1
 
         pfn=r
-        if os.path.isfile(moddir+pfn):
+        if os.path.isfile(os.path.join(moddir,pfn)):
             t=TouchMessageBox(QCoreApplication.translate("m_modules","Export"), self.mainwindow)
             t.setCancelButton()
             t.setText(QCoreApplication.translate("m_modules","A module file with this name already exists. Do you want to overwrite it?"))
@@ -7434,7 +7445,7 @@ class FtcGuiApplication(TouchApplication):
             a=a+1
         module.append("MEnd")
         
-        with open(moddir+pfn,"w", encoding="utf-8") as f:
+        with open(os.path.join(moddir,pfn),"w", encoding="utf-8") as f:
             
             json.dump(module,f)
             f.close()
@@ -7466,7 +7477,7 @@ class FtcGuiApplication(TouchApplication):
             
         if v2 !=  QCoreApplication.translate("m_modules","Yes"): return
         
-        os.remove(moddir+r)
+        os.remove(os.path.join(moddir,r))
         
 
     def on_menu_interfaces(self):
@@ -7654,7 +7665,7 @@ class FtcGuiApplication(TouchApplication):
         elif s[1]=="log":
             pm=self.canvas.pixmap()
             try:
-                lfn=logdir+"img"+time.strftime("%Y%m%d-%H%M%S")+".png"
+                lfn=os.path.join(logdir, "img"+time.strftime("%Y%m%d-%H%M%S")+".png")
                 pm.save(lfn,"",90)
             except:
                 pass
@@ -7979,6 +7990,7 @@ class FtcGuiApplication(TouchApplication):
                     ftb.setButtons([    QCoreApplication.translate("addcodeline","ArrayInit"),
                                         QCoreApplication.translate("addcodeline","Array"),
                                         QCoreApplication.translate("addcodeline","ArrayStat"),
+                                        QCoreApplication.translate("addcodeline","QueryArray"),
                                         QCoreApplication.translate("addcodeline","ArrayLoad"),
                                         QCoreApplication.translate("addcodeline","ArraySave")
                                     ])
@@ -7994,6 +8006,7 @@ class FtcGuiApplication(TouchApplication):
                     if   p2==QCoreApplication.translate("addcodeline","ArrayInit"): self.acl_ArrayInit()
                     elif p2==QCoreApplication.translate("addcodeline","Array"):     self.acl_Array()
                     elif p2==QCoreApplication.translate("addcodeline","ArrayStat"): self.acl_ArrayStat()
+                    elif p2==QCoreApplication.translate("addcodeline","QueryArray"): self.acl_QueryArray()
                     elif p2==QCoreApplication.translate("addcodeline","ArrayLoad"): self.acl_ArrayLoad()
                     elif p2==QCoreApplication.translate("addcodeline","ArraySave"): self.acl_ArraySave()
                     
@@ -8342,6 +8355,9 @@ class FtcGuiApplication(TouchApplication):
     def acl_ArraySave(self):
         self.acl("ArraySave data replace")
     
+    def acl_QueryArray(self):
+        self.acl("QueryArray data")
+    
     def remCodeLine(self):
         row=self.proglist.currentRow()
         void=self.proglist.takeItem(row)
@@ -8425,6 +8441,7 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "ArrayStat":  itm=self.ecl_ArrayStat(itm, vari)
         elif stack[0] == "ArrayLoad":  itm=self.ecl_ArrayLoad(itm)
         elif stack[0] == "ArraySave":  itm=self.ecl_ArraySave(itm)
+        elif stack[0] == "QueryArray": itm=self.ecl_QueryArray(itm)
         
         self.proglist.setCurrentRow(crow)
         self.proglist.item(crow).setText(itm)
@@ -8918,6 +8935,25 @@ class FtcGuiApplication(TouchApplication):
         
         return editArraySave(itm, arrays, self.mainwindow).exec_()
     
+    def ecl_QueryArray(self, itm):
+        arrays=[]
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="ArrayInit": arrays.append(self.proglist.item(i).text().split()[1])   
+
+        if len(arrays)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","QueryArray"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exe
+            return itm
+            
+            (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","QueryArray"),QCoreApplication.translate("ecl","Select array"),arrays,itm.split[1],"Okay").exec_()
+            
+            if s: return "QueryArray "+r
+        return itm
 #
 # and the initial application launch
 #

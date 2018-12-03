@@ -1,4 +1,6 @@
 News<hr>
+v1.5.2:<br>QueryArray and webinterface for arrays<hr>
+v1.5.1:<br>added array functions<hr>
 <b>v1.5.0(20181121):</b><br>official release of the touch functions<hr>
 v1.4.2.0:<br>added IfTouchArea<hr>
 v1.4.1.0:<br>added WaitForTouch / WaitForRelease<hr>
