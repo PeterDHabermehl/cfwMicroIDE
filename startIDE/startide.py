@@ -8950,7 +8950,10 @@ class FtcGuiApplication(TouchApplication):
             (v1,v2)=t.exe
             return itm
             
-        (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","QueryArray"),QCoreApplication.translate("ecl","Select array"),arrays,itm.split()[1],"Okay").exec_()
+        if itm.split()[1] in arrays: 
+            (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","QueryArray"),QCoreApplication.translate("ecl","Select array"),arrays,itm.split()[1],"Okay").exec_()
+        else:
+            (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","QueryArray"),QCoreApplication.translate("ecl","Select array"),arrays,arrays[0],"Okay").exec_()
             
         if s: return "QueryArray "+r
         
