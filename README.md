@@ -1,6 +1,6 @@
 # startIDE
 
-An app for the [ftcommunity firmware](http://cfw.ftcommunity.de/) on TXT controller or [TX-Pi](https://github.com/harbaum/tx-pi) to provide an onboard IDE to control a wide variety of different models ranging from a hands dryer to an industry robot and even beyond.
+An app for the [ftcommunity firmware](http://cfw.ftcommunity.de/) on TXT controller or [TX-Pi](https://github.com/harbaum/tx-pi) to provide an onboard IDE to control a wide variety of different models ranging from a hands dryer to an industry robot and even beyond, using TXT, TX-Pi, ftDuino and the Robo Interface family.
 
 ![Industry robot](ddoc/screenshots/Hanoi.png)
 ![Hands dryer](ddoc/screenshots/Haendetrockner.png)
