@@ -1,5 +1,7 @@
 # startIDE
 
+Eine Demo auf YouTube... [so einfach geht es!](https://www.youtube.com/watch?v=IHZensWPgkA)
+
 #### Kurzzusammenfassung in Deutsch:
 startIDE ist eine App zum Programmieren von Modellen auf dem fischertechnik TXT Controller mit [community firmware](http://cfw.ftcommunity.de/) oder dem [TX-Pi](https://github.com/harbaum/tx-pi). Die App selbst ist in Deutsch, Englisch oder Französisch lokalisiert, das Handbuch liegt nur in einer deutschen Fassung vor. Neben dem TXT können alle Interfaces der Robo Interface Familie sowie der [ftDuino](https://harbaum.github.io/ftduino/www/de/) angesteuert werden.
 Weitere Infos in den unten genannten Threads im ftcommunity Forum.
