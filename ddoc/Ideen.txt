@@ -1,14 +1,11 @@
 startIDE Ideensammlung
 ======================
-Stand 16.07.2018
+Stand 07.12.2018
 
 
 1) Arrays
 
-- InitArray <name> <größe>
-- ToArray <Arrayname> <Index> <Wert/Variable> 
-- FromArray <Arrayname> <Index> <Variable>
-- Stat <array> <operator="min||max||mean||sigma"> <variable>
+Array functions implemented for 1.5.1
 
 2) IfTime & IfDate
 
@@ -23,13 +20,7 @@ Stand 16.07.2018
 
 5) Shelf
 
-- Shelf <shelf> <cmd="install||remove||inventory">
-- Store <variable> Puts variable to shelf
-- Fetch <variable> <default> gets Variable from shelf. If not present in shelf, <default>
-- IfStored <variable> <tag> prüft, ob Variable im shelf vorhanden
-- IfShelf <shelf> <tag> prüft, ob <shelf> auf dem TXT existiert
-- Discard <variable> Remove variable from shelf
-- ListShelves Listet alle shelves auf
+Obsolete. From 1.5.1. on, arrays can be saved to and loaded from SD card
 
 6) FromSys
 
