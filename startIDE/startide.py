@@ -4515,8 +4515,6 @@ class editInit(TouchDialog):
         a=self.pulses.text()
         t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Value"),a,self.parent).exec_()
         try:
-            if int(t)<0: t=str(0)
-            if int(t)>9999: t=str(9999)
             t=str(int(t))
         except:
             t=a
