@@ -512,8 +512,8 @@ class execThread(QThread):
         
         self.interrupt=-1
         self.timestamp=time.time()
-        if 1:
-        #try:
+        #if 1:
+        try:
             while not self.halt and self.count<len(self.codeList):
                 line=self.codeList[self.count]
                 if self.trace: self.cmdPrint(str(self.count)+":"+line)
@@ -526,8 +526,8 @@ class execThread(QThread):
                     
                 self.count=self.count+1
                 self.parent.processEvents()
-        else:
-        #except:
+        #else:
+        except:
             self.cce=True
             self.halt=True
                 
