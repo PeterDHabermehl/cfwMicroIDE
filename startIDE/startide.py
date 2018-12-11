@@ -6793,7 +6793,7 @@ class editLookUpTable(TouchDialog):
         l.setStyleSheet("font-size: 18px;")
         
         h.addWidget(l)
-        f=["nearest","linear","cubic"]
+        f=["nearest","linear"]
         self.data=QComboBox()
         self.data.setStyleSheet("font-size: 18px;")
         self.data.addItems(f)
