@@ -512,8 +512,8 @@ class execThread(QThread):
         
         self.interrupt=-1
         self.timestamp=time.time()
-        #if 1:
-        try:
+        if 1:
+        #try:
             while not self.halt and self.count<len(self.codeList):
                 line=self.codeList[self.count]
                 if self.trace: self.cmdPrint(str(self.count)+":"+line)
@@ -526,8 +526,8 @@ class execThread(QThread):
                     
                 self.count=self.count+1
                 self.parent.processEvents()
-        #else:
-        except:
+        else:
+        #except:
             self.cce=True
             self.halt=True
                 
@@ -668,6 +668,7 @@ class execThread(QThread):
         elif stack[0]== "ArrayLoad":    self.cmdArrayLoad(stack)
         elif stack[0]== "ArraySave":    self.cmdArraySave(stack)
         elif stack[0]== "QueryArray":   self.cmdQueryArray(stack)
+        elif stack[0]== "LookUpTable":  self.cmdLookUpTable(stack)
         
         else:
             self.cmdPrint("DontKnowWhatToDo\nin code:\n"+line)
@@ -715,7 +716,49 @@ class execThread(QThread):
         if not self.touched: self.released=False        
         while self.released==False and not self.halt:
             self.parent.processEvents()
+    
+    def cmdLookUpTable(self, stack):
+        if not (stack[2] in self.arrays):
+            self.cmdPrint("Array '" + stack[2] + "'\nreferenced without\nArrayInit!\nProgram terminated") 
+            self.halt=True
+        elif not (stack[4] in self.arrays):
+            self.cmdPrint("Array '" + stack[4] + "'\nreferenced without\nArrayInit!\nProgram terminated") 
+            self.halt=True
+        else:
+            inp=self.array[self.arrays.index(stack[2])]
+            oup=self.array[self.arrays.index(stack[4])]
+            
+            ival = self.getVal(stack[5])
+            
+            if (ival<min(inp)) or (ival>max(inp)):
+                self.cmdPrint("Input out of\nArray boundaries!\nProgram terminated") 
+                self.halt=True
+            elif (len(inp) != len(oup)) or len(inp)<2:
+                self.cmdPrint("Array size mismatch!\nProgram terminated") 
+                self.halt=True
+            else:
+                n=0
+                while (inp[n]<ival) and n<len(inp):
+                    n=n+1
+                a=inp[n-1]
+                b=inp[n]
+                m=(a+b)/2
 
+                x=(ival-a)/(b-a)
+                
+                if stack[3]=="nearest":
+                    if ival<m: oval=oup[n-1]
+                    else: oval=oup[n]
+                elif stack[3]=="linear":
+                    oval=(oup[n]-oup[n-1]) * x + oup[n-1]
+                    
+                cc=0
+                for i in self.memory:
+                    if i[0]==stack[1]:
+                        self.memory[cc][1] = int(oval)
+                        break
+                    cc=cc+1 
+            
     def cmdQueryArray(self, stack):
         if stack[1] in self.arrays:
             st=stack[1]+": "
