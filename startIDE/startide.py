@@ -140,7 +140,7 @@ class QDblPushButton(QPushButton):
 #
 # the exec thread incl. parsing of the code
 #
-            
+
 class execThread(QThread):
     updateText=pyqtSignal(str)
     clearText=pyqtSignal()
@@ -178,6 +178,7 @@ class execThread(QThread):
         
         self.parent.outputClicked.connect(self.goOn)
         
+        self.count=0
         self.halt=False
         self.trace=False
         self.singlestep=False
@@ -2133,6 +2134,8 @@ class execThread(QThread):
         while self.msg==0:
             pass
         self.msg=0
+
+
 #
 #
 # GUI classes for editing command lines
@@ -6681,6 +6684,165 @@ class editArray(TouchDialog):
         except:
             t=a
         self.value.setText(str(int(t)))
+        
+class editLookUpTable(TouchDialog):
+    def __init__(self, cmdline, vari, arrays, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","LookUpTable"), parent)
+        
+        self.cmdline=cmdline
+        self.variables=vari
+        self.arrays=arrays
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+                
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.timedOut)
+        
+        self.layout=QVBoxLayout()
+        
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Output variable:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        
+        self.target=QComboBox()
+        self.target.setStyleSheet("font-size: 18px;")
+        self.target.addItems(self.variables)
+
+        if self.cmdline.split()[1] in self.variables:
+            self.target.setCurrentIndex(self.variables.index(self.cmdline.split()[1]))
+        else:
+            self.target.setCurrentIndex(0)
+
+        h.addWidget(self.target)
+        
+        self.layout.addLayout(h)
+        
+        #
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Input Array:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        
+        self.array=QComboBox()
+        self.array.setStyleSheet("font-size: 18px;")
+        self.array.addItems(self.arrays)
+
+        if self.cmdline.split()[2] in self.arrays:
+            self.array.setCurrentIndex(self.arrays.index(self.cmdline.split()[2]))
+        else:
+            self.array.setCurrentIndex(0)
+
+        h.addWidget(self.array)
+
+        self.layout.addLayout(h)
+        #
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Method:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        f=["nearest","linear","cubic"]
+        self.data=QComboBox()
+        self.data.setStyleSheet("font-size: 18px;")
+        self.data.addItems(f)
+
+        if self.cmdline.split()[3] in f:
+            self.data.setCurrentIndex(f.index(self.cmdline.split()[3]))
+        else:
+            self.data.setCurrentIndex(0)        
+
+        h.addWidget(self.data)
+        
+        self.layout.addLayout(h)
+
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Output Array:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        
+        self.array2=QComboBox()
+        self.array2.setStyleSheet("font-size: 18px;")
+        self.array2.addItems(self.arrays)
+
+        if self.cmdline.split()[4] in self.arrays:
+            self.array2.setCurrentIndex(self.arrays.index(self.cmdline.split()[4]))
+        else:
+            self.array2.setCurrentIndex(0)
+
+        h.addWidget(self.array2)
+
+        self.layout.addLayout(h)
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl","Input value:"))
+        l.setStyleSheet("font-size: 18px;")
+        self.layout.addWidget(l)     
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 18px;")
+            
+        self.value.setText(self.cmdline.split()[5])
+        self.value.mousePressEvent=self.valPress
+        self.value.mouseReleaseEvent=self.valRelease
+        self.layout.addWidget(self.value)
+        
+        self.layout.addStretch()
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+
+    def on_confirm(self):
+        self.cmdline = "LookUpTable " +self.target.itemText(self.target.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.array.itemText(self.array.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.data.itemText(self.data.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.array2.itemText(self.array2.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.value.text()
+
+        self.close()
+ 
+    def valPress(self,sender):
+        if self.timer.isActive(): self.timer.stop()
+        self.btnTimedOut=False
+        self.timer.start(500)
+    
+    def timedOut(self):
+        self.btnTimedOut=True
+        self.timer.stop()
+        self.value.setText(queryVarName(self.variables,self.value.text()))  
+    
+    def valRelease(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            try:
+                int(self.value.text())
+            except:
+                self.value.setText("0")  
+            self.getValue(1)
+    
+    def ifChanged(self):
+        pass        
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Value"),a,self).exec_()
+        try:
+            int(t)
+        except:
+            t=a
+        self.value.setText(str(int(t)))
 
 class editArrayStat(TouchDialog):
     def __init__(self, cmdline, vari, arrays, parent=None):
@@ -7656,9 +7818,6 @@ class FtcGuiApplication(TouchApplication):
             self.canvasReturn.emit()
         elif s[1]=="origin":
             self.painter=self.painter.copy(self.xpos, self.ypos, self.painter.width(), self.painter.height())
-            #self.canvas.setPixmap(QPixmap.fromImage(self.painter))
-            #self.canvas.pixmap().scroll(0-self.xpos, 0-self.ypos, self.painter.rect())
-            #self.painter=self.canvas.pixmap().toImage()
             self.canvasReturn.emit()
         elif s[1]=="log":
             pm=self.canvas.pixmap()
@@ -7989,6 +8148,7 @@ class FtcGuiApplication(TouchApplication):
                                         QCoreApplication.translate("addcodeline","Array"),
                                         QCoreApplication.translate("addcodeline","ArrayStat"),
                                         QCoreApplication.translate("addcodeline","QueryArray"),
+                                        QCoreApplication.translate("addcodeline","LookUpTable"),
                                         QCoreApplication.translate("addcodeline","ArrayLoad"),
                                         QCoreApplication.translate("addcodeline","ArraySave")
                                     ])
@@ -8005,6 +8165,7 @@ class FtcGuiApplication(TouchApplication):
                     elif p2==QCoreApplication.translate("addcodeline","Array"):     self.acl_Array()
                     elif p2==QCoreApplication.translate("addcodeline","ArrayStat"): self.acl_ArrayStat()
                     elif p2==QCoreApplication.translate("addcodeline","QueryArray"): self.acl_QueryArray()
+                    elif p2==QCoreApplication.translate("addcodeline","LookUpTable"): self.acl_LookUpTable()
                     elif p2==QCoreApplication.translate("addcodeline","ArrayLoad"): self.acl_ArrayLoad()
                     elif p2==QCoreApplication.translate("addcodeline","ArraySave"): self.acl_ArraySave()
                     
@@ -8356,6 +8517,9 @@ class FtcGuiApplication(TouchApplication):
     def acl_QueryArray(self):
         self.acl("QueryArray data")
     
+    def acl_LookUpTable(self):
+        self.acl("LookUpTable integer array nearest array 1")
+    
     def remCodeLine(self):
         row=self.proglist.currentRow()
         void=self.proglist.takeItem(row)
@@ -8440,6 +8604,8 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "ArrayLoad":  itm=self.ecl_ArrayLoad(itm)
         elif stack[0] == "ArraySave":  itm=self.ecl_ArraySave(itm)
         elif stack[0] == "QueryArray": itm=self.ecl_QueryArray(itm)
+        elif stack[0] == "LookUpTable": itm=self.ecl_LookUpTable(itm, vari)
+        
         
         self.proglist.setCurrentRow(crow)
         self.proglist.item(crow).setText(itm)
@@ -8945,7 +9111,7 @@ class FtcGuiApplication(TouchApplication):
             t.setTextSize(2)
             t.setBtnTextSize(2)
             t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exe
+            (v1,v2)=t.exec_()
             return itm
             
         if itm.split()[1] in arrays: 
@@ -8956,6 +9122,33 @@ class FtcGuiApplication(TouchApplication):
         if s: return "QueryArray "+r
         
         return itm
+
+    def ecl_LookUpTable(self, itm, vari):
+        arrays=[]
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="ArrayInit": arrays.append(self.proglist.item(i).text().split()[1])   
+
+        if len(arrays)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","LookUpTable"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
+        if len(vari)==0:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","LookUpTable"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return itm
+            
+        return editLookUpTable(itm, vari, arrays, self.mainwindow).exec_()
+    
 #
 # and the initial application launch
 #
