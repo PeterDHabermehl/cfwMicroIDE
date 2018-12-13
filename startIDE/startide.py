@@ -8,6 +8,8 @@ from TouchAuxiliary import *
 from robointerface import *
 import ftrobopy as txt
 import random, math
+import serial
+import serial.tools.list_ports
 from datetime import datetime
 
 import translator
@@ -35,6 +37,9 @@ RIFSERIAL=""
 
 # do not check for missing interfaces
 IGNOREMISSING=False
+
+# VID:PID for servoDuino (SRD)
+SRDVIDPID="6666:6666"
 
 #FTTXTADDRESS="192.168.178.24"
 FTTXTADDRESS="auto"
@@ -88,6 +93,12 @@ TXTsndStack = [ "---", "Plane", "Alarm", "Bell", "Brakes", "Horn(short)", "Horn(
 #
 # some auxiliaries
 #
+
+def USBScan(vidpid):
+    d=[]
+    for dev in serial.tools.list_ports.grep("vid:pid="+vidpid):
+        d.append(dev[0])
+    return d
 
 def clean(text,maxlen):
     res=""
