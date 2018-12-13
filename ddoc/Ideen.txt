@@ -1,6 +1,6 @@
 startIDE Ideensammlung
 ======================
-Stand 07.12.2018
+Stand 13.12.2018
 
 
 1) Arrays
@@ -39,5 +39,7 @@ Obsolete, because implemented via FromSys
 
 10) FromLUT <Look-Up-Table> <Interp.> <Eingangswert> <Zielvariable>
     Interpoliert den Wert für <Zielvariable> aus einer Kennlinie mit der in <interp> angegebenen Methode (NearestNeighbor, Linear, Cubic)
+    - LookUpTable integriert mit Arrays
+    
     
 
