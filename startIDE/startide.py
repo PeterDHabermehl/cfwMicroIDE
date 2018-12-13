@@ -2576,6 +2576,127 @@ class editOutput(TouchDialog):
         except:
             pass
 
+class editServo(TouchDialog):
+    def __init__(self, cmdline, vari, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","Servo"), parent)
+        
+        self.cmdline=cmdline
+        self.variables=vari
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+        
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.timedOut)
+        
+        self.layout=QVBoxLayout()
+        
+        k1=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Device"))
+        l.setStyleSheet("font-size: 20px;")
+        
+        k1.addWidget(l)
+        
+        self.interface=QComboBox()
+        self.interface.setStyleSheet("font-size: 20px;")
+        self.interface.addItems(["SRD","TXT","FTD"])
+
+        if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(1)
+        if self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(2)
+        self.interface.currentIndexChanged.connect(self.ifChanged)
+        k1.addWidget(self.interface)
+        
+        #self.layout.addStretch()
+        
+        k2=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Port"))
+        l.setStyleSheet("font-size: 20px;")
+        k2.addWidget(l)
+        
+        self.port=QComboBox()
+        self.port.setStyleSheet("font-size: 20px;")
+        self.port.addItems(["S00","S01","S02","S03","S04","S05","S06","S07","S08","S09","S10","S11","S12","S13","S14","S15"])
+        p=self.cmdline.split()[2]
+        print(p)
+        self.port.setCurrentIndex(int(p[1:]))
+        k2.addWidget(self.port)
+        
+        k9=QHBoxLayout()
+        k9.addLayout(k1)
+        k9.addStretch()
+        k9.addLayout(k2)
+        
+        self.layout.addLayout(k9)
+        
+        l=QLabel(QCoreApplication.translate("ecl","Value"))
+        l.setStyleSheet("font-size: 20px;")
+        self.layout.addWidget(l)     
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 20px;")
+        self.value.setText(self.cmdline.split()[3])
+        self.value.mousePressEvent=self.valPress
+        self.value.mouseReleaseEvent=self.valRelease
+        self.layout.addWidget(self.value)
+        
+        self.layout.addStretch()
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="Servo " +self.interface.currentText()+ " " + self.port.currentText() + " " + self.value.text()
+        self.close()
+    
+    def ifChanged(self):
+        self.valueChanged()
+
+    def valPress(self,sender):
+        if self.timer.isActive(): self.timer.stop()
+        self.btnTimedOut=False
+        self.timer.start(500)
+    
+    def timedOut(self):
+        self.btnTimedOut=True
+        self.timer.stop()
+        self.value.setText(queryVarName(self.variables,self.value.text()))  
+    
+    def valRelease(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            try:
+                int(self.value.text())
+            except:
+                self.value.setText("0")  
+            self.getValue(1)
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Value"),a,self).exec_()
+        try:
+            self.value.setText(str(int(t)))
+        except:
+            
+            self.value.setText(a)
+            
+        self.valueChanged()
+        
+    def valueChanged(self):
+        try:            
+            if self.interface.currentIndex()==0: self.value.setText(str(max(0,min(7,int(self.value.text())))))
+            else: self.value.setText(str(max(0,min(4095,int(self.value.text())))))
+        except:
+            pass
+
+
 class editMotor(TouchDialog):
     def __init__(self, cmdline, vari, parent=None):
         TouchDialog.__init__(self, QCoreApplication.translate("ecl","Motor"), parent)
@@ -8123,7 +8244,8 @@ class FtcGuiApplication(TouchApplication):
                              QCoreApplication.translate("addcodeline","Motor"),
                              QCoreApplication.translate("addcodeline","MotorPulsew."),
                              QCoreApplication.translate("addcodeline","MotorEnc"),
-                             QCoreApplication.translate("addcodeline","MotorEncSync")
+                             QCoreApplication.translate("addcodeline","MotorEncSync"),
+                             QCoreApplication.translate("addcodeline","Servo")
                             ]
                           )
             ftb.setTextSize(3)
@@ -8139,7 +8261,8 @@ class FtcGuiApplication(TouchApplication):
                 elif p==QCoreApplication.translate("addcodeline","MotorPulsew."):   self.acl_motorPulsewheel()
                 elif p==QCoreApplication.translate("addcodeline","MotorEnc"):   self.acl_motorEncoder()  
                 elif p==QCoreApplication.translate("addcodeline","MotorEncSync"): self.acl_motorEncoderSync()
-
+                elif p==QCoreApplication.translate("addcodeline","Servo"):  self.acl_servo()
+                
         elif r==QCoreApplication.translate("addcodeline","Variables"):
             ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Variables"), self.mainwindow)
             ftb.setButtons([ QCoreApplication.translate("addcodeline","Init"),
@@ -8417,6 +8540,9 @@ class FtcGuiApplication(TouchApplication):
     def acl_output(self):
         self.acl("Output " + self.lastIF + " 1 0")
         
+    def acl_servo(self):
+        self.acl("Servo " + "SRD" + " S00 340")
+    
     def acl_motor(self):
         self.acl("Motor " + self.lastIF + " 1 l 0")
     
@@ -8606,6 +8732,7 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "MotorP":     itm=self.ecl_motorPulsewheel(itm, vari)
         elif stack[0] == "MotorE":     itm=self.ecl_motorEncoder(itm, vari)
         elif stack[0] == "MotorES":    itm=self.ecl_motorEncoderSync(itm, vari)
+        elif stack[0] == "Servo":      itm=self.ecl_servo(itm, vari)
         elif stack[0] == "WaitInDig":  itm=self.ecl_waitForInputDig(itm, vari)
         elif stack[0] == "IfInDig":    itm=self.ecl_ifInputDig(itm, vari)
         elif stack[0] == "WaitIn":     itm=self.ecl_waitForInput(itm, vari)
@@ -8665,6 +8792,9 @@ class FtcGuiApplication(TouchApplication):
     
     def ecl_output(self, itm, vari):
         return editOutput(itm,vari, self.mainwindow).exec_()
+
+    def ecl_servo(self, itm, vari):
+        return editServo(itm,vari, self.mainwindow).exec_()
     
     def ecl_motor(self, itm, vari):
         return editMotor(itm,vari,self.mainwindow).exec_()
