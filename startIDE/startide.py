@@ -2735,8 +2735,7 @@ class editServo(TouchDialog):
         
     def valueChanged(self):
         try:            
-            if self.interface.currentIndex()==0: self.value.setText(str(max(0,min(7,int(self.value.text())))))
-            else: self.value.setText(str(max(0,min(4095,int(self.value.text())))))
+            self.value.setText(str(max(0,min(4095,int(self.value.text())))))
         except:
             pass
 
