@@ -3,16 +3,17 @@
 #
 import sys, time, os, json, shutil
 import threading as thd
-from TouchStyle import *
-from TouchAuxiliary import *
-from robointerface import *
 import ftrobopy as txt
 import random, math
 import serial
 import serial.tools.list_ports
-from datetime import datetime
 
 import translator
+
+from TouchStyle import *
+from TouchAuxiliary import *
+from robointerface import *
+from datetime import datetime
 from PyQt4 import QtCore, QtGui
 
 try:
@@ -175,6 +176,7 @@ class execThread(QThread):
         self.RIF=RIF
         self.TXT=TXT
         self.FTD=FTD
+        self.SRD=None
         self.parent=parent
         
         self.parent.msgBack.connect(self.msgBack)
@@ -200,6 +202,7 @@ class execThread(QThread):
         self.requireTXT=False
         self.requireRIF=False
         self.requireFTD=False
+        self.requireSRD=False
         
         self.jmpTable=[]
         self.LoopStack=[]
@@ -255,6 +258,10 @@ class execThread(QThread):
                 self.requireRIF=True
             elif "FTD" in a[1]:
                 self.requireFTD=True
+            elif "SRD"==a[1]:
+                self.requireSRD=True
+            elif "SRDVIDPID" in a[1]:
+                SRDVIDPID=a[2]
             elif a[0]=="Tag": 
                 self.jmpTable.append([line[4:], cnt])
             elif a[0]=="Module":
@@ -386,6 +393,29 @@ class execThread(QThread):
             cnt=cnt+1
         self.clrOut()
         
+        if self.requireSRD:
+            try:
+                SRDdevices=self.USBScan(SRDVIDPID)
+                if len(SRDdevices)==1:
+                    self.SRD=serial.Serial(SRDdevices[0], 115200, timeout=0.1, writeTimeout = 0.1)
+                    time.sleep(0.25)
+                    self.SRD.flushInput()
+                    self.SRD.flushOutput()
+                    
+                    #Hier jetzt mal checken, ob das device auf ein "report_code" antwortet...
+                    self.SRD.write("report_code\n".encode("utf-8"))
+                    n=self.SRD.readline().decode("utf-8")[:-2]
+                    if n!="verdammt,wiehabichdasdochgleichgenannt":
+                        self.SRD.close()
+                        self.SRD=None
+                        self.msgOut(QCoreApplication.translate("exec","servoDuino not found!\nProgram terminated\n"))                
+                        if not IGNOREMISSING: self.stop()
+                else:
+                    self.msgOut(QCoreApplication.translate("exec","servoDuino detect error!\nProgram terminated\n"))                
+                    if not IGNOREMISSING: self.stop()                    
+            except:
+                self.msgOut(QCoreApplication.translate("exec","servoDuino not found!\nProgram terminated\n"))                
+                if not IGNOREMISSING: self.stop()
         if self.requireTXT and self.TXT==None:
             self.msgOut(QCoreApplication.translate("exec","TXT not found!\nProgram terminated\n"))
             if not IGNOREMISSING: self.stop()
@@ -572,6 +602,9 @@ class execThread(QThread):
             for i in range(1,9):
                 self.FTD.comm("output_set O"+str(i)+" 1 0")
         
+        if self.SRD!=None:
+            self.SRD.close()
+            
         self.execThreadFinished.emit()
     
     def __del__(self):
@@ -2615,10 +2648,10 @@ class editServo(TouchDialog):
         
         self.interface=QComboBox()
         self.interface.setStyleSheet("font-size: 20px;")
-        self.interface.addItems(["SRD","TXT","FTD"])
+        self.interface.addItems(["SRD","FTD","TXT"])
 
-        if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(1)
-        if self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(2)
+        if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(2)
+        if self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(1)
         self.interface.currentIndexChanged.connect(self.ifChanged)
         k1.addWidget(self.interface)
         
