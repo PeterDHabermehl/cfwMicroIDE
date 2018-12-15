@@ -659,6 +659,7 @@ class execThread(QThread):
         elif stack[0]== "MotorP":   self.cmdMotorPulsewheel(stack)
         elif stack[0]== "MotorE":   self.cmdMotorEncoder(stack)
         elif stack[0]== "MotorES":  self.cmdMotorEncoderSync(stack)
+        elif stack[0]== "Servo":    self.cmdServo(stack)
         elif stack[0]== "Delay":    self.cmdDelay(stack)
         elif stack[0]== "TimerQuery": self.cmdPrint("Timer: "+str(int((time.time()-self.timestamp)*1000)))
         elif stack[0]== "TimerClear": self.timestamp=time.time()
@@ -1688,6 +1689,21 @@ class execThread(QThread):
                 if not a==b: c=c+1
             
             self.FTD.comm("motor_set M"+str(m)+" brake 0")
+
+    def cmdServo(self, stack):
+        v=self.getVal(stack[3])
+        if self.halt: return
+        
+        if stack[1]=="SRD":
+            self.SRD.flushInput()
+            self.SRD.flushOutput()
+            self.SRD.write(("pwm_set "+str(int((stack[2])[1:]))+" 0 "+str(v)).encode("utf-8"))
+            self.SRD.readline().decode("utf-8")[:-2]
+        elif stack[1]=="TXT":
+            # self.txt_o[int(stack[2])-1].setLevel(v)
+            pass
+        elif stack[1]=="FTD":
+            self.FTD.comm("pwm_set "+str(int((stack[2])[1:]))+" 0 "+str(v))             
             
     def cmdDelay(self, stack):
         v=self.getVal(stack[1])
@@ -1707,8 +1723,6 @@ class execThread(QThread):
             time.sleep(0.001)
         
         self.sleeper.cancel()
-        # if self.halt:
-        #    self.count=len(self.codeList)
             
 
     def wake(self):
