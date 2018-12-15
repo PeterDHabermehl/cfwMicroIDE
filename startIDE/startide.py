@@ -8301,8 +8301,8 @@ class FtcGuiApplication(TouchApplication):
                              QCoreApplication.translate("addcodeline","Motor"),
                              QCoreApplication.translate("addcodeline","MotorPulsew."),
                              QCoreApplication.translate("addcodeline","MotorEnc"),
-                             QCoreApplication.translate("addcodeline","MotorEncSync"),
-                             QCoreApplication.translate("addcodeline","Servo")
+                             QCoreApplication.translate("addcodeline","MotorEncSync")#,
+                             #QCoreApplication.translate("addcodeline","Servo")
                             ]
                           )
             ftb.setTextSize(3)
