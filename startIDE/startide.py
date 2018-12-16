@@ -161,7 +161,7 @@ class execThread(QThread):
     requestKeyboard=pyqtSignal(int, str)
     requestDial=pyqtSignal(str, int, int, int, str)
     requestBtn=pyqtSignal(str, str, list)
-    requestArray=pyqtSignal(list)
+    requestArray=pyqtSignal(str,list,str)
     canvasSig=pyqtSignal(str)
     
     def __init__(self, codeList, output, starter, RIF,TXT,FTD, parent):
@@ -817,8 +817,31 @@ class execThread(QThread):
     
     def cmdArraySave(self, stack):
         if stack[1] in self.arrays:
-            if stack[2]=="replace": fname=os.path.join(arrdir, stack[1]+".arr")
-            else: fname=os.path.join(arrdir, stack[1]+time.strftime("%Y%m%d-%H%M%S")+".arr")
+            if stack[2]=="replace":
+                fname=os.path.join(arrdir, stack[1]+".arr")
+            elif stack[2]=="rename":
+                fname=os.path.join(arrdir, stack[1]+time.strftime("%Y%m%d-%H%M%S")+".arr")
+            else:
+                files=os.listdir(arrdir)
+                for i in files: 
+                    if i[-4:]!=".arr": files.remove(i)
+                
+                files.sort()
+                s=False
+                if len(files)>0:
+                    self.msg=0
+                    self.requestArray.emit(QCoreApplication.translate("ecl","Save"),files,stack[1])
+                    while self.msg==0:
+                        time.sleep(0.01)
+                    r=self.imesg
+                    if r!="-1": s=True
+                    
+                    
+                if not s: 
+                    self.cmdPrint("Error saving array '"+stack[1]+"'.")
+                    return
+                
+                fname=os.path.join(arrdir, r)
             
             if os.path.exists(fname) and stack[2]=="rename": 
                 self.cmdPrint("Error saving array '"+stack[1]+"'.")
@@ -846,15 +869,14 @@ class execThread(QThread):
                 
                 files.sort()
                 
+                s=False
                 if len(files)>0:
                     self.msg=0
-                    self.requestArray.emit(files)
+                    self.requestArray.emit(QCoreApplication.translate("ecl","Load"),files,stack[1])
                     while self.msg==0:
                         time.sleep(0.01)
                     r=self.imesg
-                    s=True  
-                else:
-                    s=False
+                    if r!="-1":  s=True
                     
                 if not s: 
                     self.cmdPrint("Error loading array '"+stack[1]+"'.")
@@ -7246,7 +7268,7 @@ class editArraySave(TouchDialog):
         l.setStyleSheet("font-size: 18px;")
         
         h.addWidget(l)
-        f=["replace","rename"]
+        f=["replace","rename","userSelect"]
         self.data=QComboBox()
         self.data.setStyleSheet("font-size: 18px;")
         self.data.addItems(f)
@@ -8217,9 +8239,11 @@ class FtcGuiApplication(TouchApplication):
             self.IMsgBack.emit("-1")
         self.msgBack.emit(1)
 
-    def requestArray(self, files):
+    def requestArray(self, title, files, select):
+        
+        if not (select in files): select=files[0] 
    
-        (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","Load"),QCoreApplication.translate("ecl","Array"),files,files[0],"Okay", self.mainwindow).exec_()
+        (s,r)=TouchAuxListRequester(title,QCoreApplication.translate("ecl","Array"),files,select,"Okay", self.mainwindow).exec_()
         
         if s:
             self.IMsgBack.emit(r)
