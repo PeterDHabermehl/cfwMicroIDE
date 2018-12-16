@@ -7404,6 +7404,11 @@ class FtcGuiApplication(TouchApplication):
         
         self.menu.addSeparator()
         
+        self.m_modules = self.menu.addAction(QCoreApplication.translate("mmain","Data"))
+        self.m_modules.triggered.connect(self.on_menu_data)
+        
+        self.menu.addSeparator()
+        
         self.m_interf = self.menu.addAction(QCoreApplication.translate("mmain","Interfaces"))
         self.m_interf.triggered.connect(self.on_menu_interfaces)  
         
@@ -7519,7 +7524,7 @@ class FtcGuiApplication(TouchApplication):
         canvasSize=min(self.mainwindow.width(),self.mainwindow.height())
         self.canvas=QLabel(self.mainwindow)
         self.canvas.setGeometry(0, 0, canvasSize, canvasSize)        
-        #self.canvas.setPixmap(QPixmap(pixdir+"pixmap.png"))
+        #self.canvas.setPixmap(QPixmap(os.path.join(pixdir,"pixmap.png")))
         self.canvas.setPixmap(QPixmap(canvasSize, canvasSize))
         self.canvas.hide()
         self.painter=QImage(canvasSize, canvasSize, QImage.Format_RGB32)
@@ -7881,7 +7886,79 @@ class FtcGuiApplication(TouchApplication):
         if v2 !=  QCoreApplication.translate("m_modules","Yes"): return
         
         os.remove(os.path.join(moddir,r))
+
+    def on_menu_data(self):
+        fta=TouchAuxMultibutton(QCoreApplication.translate("m_data","Data"), self.mainwindow)
+        fta.setButtons([ QCoreApplication.translate("m_data","Arrays"),
+                         QCoreApplication.translate("m_data","Logfiles")
+                        ]
+                      )
+        fta.setTextSize(3)
+        fta.setBtnTextSize(3)
+        (s,r)=fta.exec_()      
         
+        if   r == QCoreApplication.translate("m_data","Arrays"):    self.data_arrays()
+        elif r == QCoreApplication.translate("m_data","Logfiles"):  self.data_logfiles()      
+
+    def data_arrays(self):
+        # get list of arrays and query user
+        filelist=os.listdir(arrdir)
+        filelist.sort()
+        if len(filelist)>0:
+            (s,r)=TouchAuxListRequester(QCoreApplication.translate("m_data","Arrays"),QCoreApplication.translate("m_data","Array"),filelist,filelist[0],"Okay",self.mainwindow).exec_()
+        else:
+            t=TouchMessageBox(QCoreApplication.translate("m_data","Arrays"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_data","No saved arrays found."))
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_data","Okay"))
+            (v1,v2)=t.exec_()   
+            s=False
+            
+        if not s: return
+
+        t=TouchMessageBox(QCoreApplication.translate("m_modules","Delete"), self.mainwindow)
+        t.setCancelButton()
+        t.setText(QCoreApplication.translate("m_modules","Do you really want to permanently delete this array?")+"<br>"+r)
+        t.setBtnTextSize(2)
+        t.setPosButton(QCoreApplication.translate("m_modules","Yes"))
+        t.setNegButton(QCoreApplication.translate("m_modules","No"))
+        (v1,v2)=t.exec_()
+            
+        if v2 !=  QCoreApplication.translate("m_modules","Yes"): return
+        
+        os.remove(os.path.join(arrdir,r))
+
+    
+    
+    def data_logfiles(self):
+        # get list of arrays and query user
+        filelist=os.listdir(logdir)
+        filelist.sort()
+        if len(filelist)>0:
+            (s,r)=TouchAuxListRequester(QCoreApplication.translate("m_data","Logfiles"),QCoreApplication.translate("m_data","Logfile"),filelist,filelist[0],"Okay",self.mainwindow).exec_()
+        else:
+            t=TouchMessageBox(QCoreApplication.translate("m_data","Logfiles"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_data","No saved logfiles found."))
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_data","Okay"))
+            (v1,v2)=t.exec_()   
+            s=False
+            
+        if not s: return
+
+        t=TouchMessageBox(QCoreApplication.translate("m_modules","Delete"), self.mainwindow)
+        t.setCancelButton()
+        t.setText(QCoreApplication.translate("m_modules","Do you really want to permanently delete this logfile?")+"<br>"+r)
+        t.setBtnTextSize(2)
+        t.setPosButton(QCoreApplication.translate("m_modules","Yes"))
+        t.setNegButton(QCoreApplication.translate("m_modules","No"))
+        (v1,v2)=t.exec_()
+            
+        if v2 !=  QCoreApplication.translate("m_modules","Yes"): return
+        
+        os.remove(os.path.join(logdir,r))
 
     def on_menu_interfaces(self):
         global RIFSERIAL
