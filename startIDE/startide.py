@@ -7524,7 +7524,6 @@ class FtcGuiApplication(TouchApplication):
         canvasSize=min(self.mainwindow.width(),self.mainwindow.height())
         self.canvas=QLabel(self.mainwindow)
         self.canvas.setGeometry(0, 0, canvasSize, canvasSize)        
-        #self.canvas.setPixmap(QPixmap(os.path.join(pixdir,"pixmap.png")))
         self.canvas.setPixmap(QPixmap(canvasSize, canvasSize))
         self.canvas.hide()
         self.painter=QImage(canvasSize, canvasSize, QImage.Format_RGB32)
@@ -7890,6 +7889,7 @@ class FtcGuiApplication(TouchApplication):
     def on_menu_data(self):
         fta=TouchAuxMultibutton(QCoreApplication.translate("m_data","Data"), self.mainwindow)
         fta.setButtons([ QCoreApplication.translate("m_data","Arrays"),
+                         QCoreApplication.translate("m_data","Pixmaps"),
                          QCoreApplication.translate("m_data","Logfiles")
                         ]
                       )
@@ -7898,6 +7898,7 @@ class FtcGuiApplication(TouchApplication):
         (s,r)=fta.exec_()      
         
         if   r == QCoreApplication.translate("m_data","Arrays"):    self.data_arrays()
+        elif r == QCoreApplication.translate("m_data","Pixmaps"):   self.data_pixmaps()
         elif r == QCoreApplication.translate("m_data","Logfiles"):  self.data_logfiles()      
 
     def data_arrays(self):
@@ -7929,6 +7930,34 @@ class FtcGuiApplication(TouchApplication):
         
         os.remove(os.path.join(arrdir,r))
 
+    def data_pixmaps(self):
+        # get list of pixmaps and query user
+        filelist=os.listdir(pixdir)
+        filelist.sort()
+        if len(filelist)>0:
+            (s,r)=TouchAuxListRequester(QCoreApplication.translate("m_data","Pixmaps"),QCoreApplication.translate("m_data","Pixmap"),filelist,filelist[0],"Okay",self.mainwindow).exec_()
+        else:
+            t=TouchMessageBox(QCoreApplication.translate("m_data","Pixmaps"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("m_data","No pixmaps found."))
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("m_data","Okay"))
+            (v1,v2)=t.exec_()   
+            s=False
+            
+        if not s: return
+
+        t=TouchMessageBox(QCoreApplication.translate("m_modules","Delete"), self.mainwindow)
+        t.setCancelButton()
+        t.setText(QCoreApplication.translate("m_modules","Do you really want to permanently delete this pixmap?")+"<br>"+r)
+        t.setBtnTextSize(2)
+        t.setPosButton(QCoreApplication.translate("m_modules","Yes"))
+        t.setNegButton(QCoreApplication.translate("m_modules","No"))
+        (v1,v2)=t.exec_()
+            
+        if v2 !=  QCoreApplication.translate("m_modules","Yes"): return
+        
+        os.remove(os.path.join(pixdir,r))
     
     
     def data_logfiles(self):
@@ -8147,12 +8176,19 @@ class FtcGuiApplication(TouchApplication):
             except:
                 pass
             self.canvasReturn.emit()
+        elif s[1]=="load":
+            try:
+                self.painter.load(os.path.join(pixdir,s[2]))
+                self.canvas.setPixmap(QPixmap.fromImage(self.painter))
+            except:
+                pass
+            self.canvasReturn.emit()
         elif s[1]=="move":
             self.xpos=int(s[2])
             self.ypos=int(s[3])
             self.canvasReturn.emit()
         elif s[1]=="plot":
-            pm=self.painter #self.canvas.pixmap()
+            pm=self.painter 
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -8162,7 +8198,7 @@ class FtcGuiApplication(TouchApplication):
             p.end()
             self.canvasReturn.emit()
         elif s[1]=="lineTo":
-            pm=self.painter #self.canvas.pixmap()
+            pm=self.painter 
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -8174,7 +8210,7 @@ class FtcGuiApplication(TouchApplication):
             p.end()  
             self.canvasReturn.emit()
         elif s[1]=="rectTo":
-            pm=self.painter #self.canvas.pixmap()
+            pm=self.painter 
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -8186,7 +8222,7 @@ class FtcGuiApplication(TouchApplication):
             p.end() 
             self.canvasReturn.emit()
         elif s[1]=="boxTo":
-            pm=self.painter #self.canvas.pixmap()
+            pm=self.painter 
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -8198,7 +8234,7 @@ class FtcGuiApplication(TouchApplication):
             p.end() 
             self.canvasReturn.emit()
         elif s[1]=="circleTo":
-            pm=self.painter #self.canvas.pixmap()
+            pm=self.painter 
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -8210,7 +8246,7 @@ class FtcGuiApplication(TouchApplication):
             p.end()
             self.canvasReturn.emit()
         elif s[1]=="discTo":
-            pm=self.painter #self.canvas.pixmap()
+            pm=self.painter 
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -8223,7 +8259,7 @@ class FtcGuiApplication(TouchApplication):
             p.end()
             self.canvasReturn.emit()
         elif s[1]=="eraseTo":
-            pm=self.painter #self.canvas.pixmap()
+            pm=self.painter 
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.bred, self.bgreen, self.bblue, 255))
@@ -8243,7 +8279,7 @@ class FtcGuiApplication(TouchApplication):
             self.xpos=int(s[2])
             self.ypos=int(s[3])
             self.area.append( QtCore.QPointF(self.xpos, self.ypos) )
-            pm=self.painter #self.canvas.pixmap()
+            pm=self.painter
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -8251,8 +8287,8 @@ class FtcGuiApplication(TouchApplication):
             p.drawPolygon(self.area)
             self.area = QtGui.QPolygonF()
             self.canvasReturn.emit()
-        elif s[1]=="text": # draw text
-            pm=self.painter #self.canvas.pixmap()
+        elif s[1]=="text": 
+            pm=self.painter
             p=QPainter()
             p.begin(pm)
             p.setPen(QtGui.QColor(self.pred, self.pgreen, self.pblue, 255))
@@ -8601,7 +8637,8 @@ class FtcGuiApplication(TouchApplication):
                                             QCoreApplication.translate("addcodeline","Clear"),
                                             QCoreApplication.translate("addcodeline","Update"),
                                             QCoreApplication.translate("addcodeline","Origin"),
-                                            QCoreApplication.translate("addcodeline","Log"),
+                                            QCoreApplication.translate("addcodeline","Load"),
+                                            QCoreApplication.translate("addcodeline","Log")
                                             ]
                                         )
                             ftb.setTextSize(3)
@@ -8612,6 +8649,7 @@ class FtcGuiApplication(TouchApplication):
                             elif p==QCoreApplication.translate("addcodeline","Clear"):    self.acl_canvas_clear()
                             elif p==QCoreApplication.translate("addcodeline","Update"):   self.acl_canvas_update()
                             elif p==QCoreApplication.translate("addcodeline","Origin"):   self.acl_canvas_origin()
+                            elif p==QCoreApplication.translate("addcodeline","Load"):     self.acl_canvas_load()
                             elif p==QCoreApplication.translate("addcodeline","Log"):      self.acl_canvas_log()
                              
                         elif p==QCoreApplication.translate("addcodeline","Pen"):       self.acl_pen()
@@ -8658,7 +8696,10 @@ class FtcGuiApplication(TouchApplication):
         
     def acl_canvas_origin(self):
         self.acl("Canvas origin")
-        
+
+    def acl_canvas_load(self):
+        self.acl("Canvas load canvas.png")        
+
     def acl_canvas_log(self):
         self.acl("Canvas log")
         
@@ -8926,6 +8967,8 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "Color":      itm=self.ecl_color(itm, vari)
         elif stack[0] == "Text":       itm=self.ecl_text(itm, vari)
         elif stack[0] == "VarToText":  itm=self.ecl_varToText(itm, vari)
+        elif stack[0] == "Canvas":
+            if stack[1] == "load":     itm=self.ecl_canvas_load(itm)
         elif stack[0] == "ArrayInit":  itm=self.ecl_ArrayInit(itm)
         elif stack[0] == "Array":      itm=self.ecl_Array(itm, vari)
         elif stack[0] == "ArrayStat":  itm=self.ecl_ArrayStat(itm, vari)
@@ -9320,6 +9363,30 @@ class FtcGuiApplication(TouchApplication):
         
         return "RIFShift "+str(v)
 
+    def ecl_canvas_load(self, itm):
+        
+        select=itm.split()[2]
+        
+        files=os.listdir(pixdir)
+        files.sort()
+        if len(files)>0:
+            if not (select in files): select=files[0] 
+   
+            (s,r)=TouchAuxListRequester("Canvas",QCoreApplication.translate("ecl","Pixmap"),files,select,"Okay", self.mainwindow).exec_()
+        
+            if s:
+                return "Canvas load " + r
+        else:
+            t=TouchMessageBox(QCoreApplication.translate("ecl","Canvas load"), self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No pixmaps found!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+
+        return itm
+    
     def ecl_pen(self, itm, vari):
         return editPen(itm, vari, self.mainwindow).exec_()
     
