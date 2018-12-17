@@ -169,9 +169,15 @@ def translate(string, locale = LOCAL):
     elif string == "Download a module as a text file":
         if locale == "de": return "Lade ein Modul als Textdatei herunter"
         if locale == "fr": return "T&eacute;l&eacute;charger un module comme un fichier texte"
-    elif string == "":
-        if locale == "de": return ""
-        if locale == "fr": return ""
+    elif string == "Upload a pixmap (240x240 png image) to your TXT":
+        if locale == "de": return "Lade eine Pixmap (240x240 png Bild) auf den TXT"
+        if locale == "fr": return "T&eacute;l&eacute;charger un image (240x240 png) sur le TXT"
+    elif string == "Please select png image:":
+        if locale == "de": return "W&auml;hle eine png Bilddatei aus:"
+        if locale == "fr": return "Veuillez s&eacute;lectionner l'image png:"
+    elif string == "Image file:":
+        if locale == "de": return "Bilddatei:"
+        if locale == "fr": return "Fichier image png:"
     # if string == "another string":  
     #     if locale == "de": return "Deutsche Übersetzung"
     #     if locale == "fr": return "Traduction francaise"
