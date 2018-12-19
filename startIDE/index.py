@@ -210,8 +210,12 @@ def uploader(obj:str, fileitem):
     
     try:
         if len(obj)<2:
-            with open(filename, 'w', encoding="utf-8") as f:
-                f.write(fileitem.file.read().decode())
+            if obj[0]=="I":
+                with open(filename, 'wb') as f:
+                    f.write(fileitem.file.read())
+            else:
+                with open(filename, 'w', encoding="utf-8") as f:
+                    f.write(fileitem.file.read().decode())
             f.close()
         else:
             stack=[]
