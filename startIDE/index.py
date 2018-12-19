@@ -141,7 +141,7 @@ def upload(obj:str):
     elif obj=="A":
         hth.text(tr.translate("Array file:"))
         print('<input name="array" type="file" size="50" accept="text/plain"> </label>')
-    elif obj=="A":
+    elif obj=="I":
         hth.text(tr.translate("Image file:"))
         print('<input name="image" type="file" size="50" accept="image/*"> </label>')
     
