@@ -620,7 +620,7 @@ class execThread(QThread):
             self.SRD.flushInput()
             self.SRD.flushOutput()
             self.SRD.write(("pwm_halt\n").encode("utf-8"))
-            time.delay(0.1)
+            time.sleep(0.05)
             self.SRD.close()
             
         self.execThreadFinished.emit()
