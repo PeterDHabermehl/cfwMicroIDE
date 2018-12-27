@@ -2719,7 +2719,6 @@ class editServo(TouchDialog):
         self.port.setStyleSheet("font-size: 20px;")
         self.port.addItems(["S00","S01","S02","S03","S04","S05","S06","S07","S08","S09","S10","S11","S12","S13","S14","S15"])
         p=self.cmdline.split()[2]
-        print(p)
         self.port.setCurrentIndex(int(p[1:]))
         k2.addWidget(self.port)
         
