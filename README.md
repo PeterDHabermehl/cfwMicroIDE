@@ -1,5 +1,7 @@
 # startIDE
 
+A german user guide (Handbuch, currently v1.6) is available: [ddoc/Manual_160_de.pdf](ddoc/Manual_160_de.pdf)
+
 Eine Demo auf YouTube... [so einfach geht es!](https://www.youtube.com/watch?v=IHZensWPgkA)
 
 #### Kurzzusammenfassung in Deutsch:
@@ -38,8 +40,6 @@ Although it is pysically possible to connect more than one interface of the same
 
 When run on ft TXT controller, it is possible to use TXT and a connected Robo family device and a ftDuino*) in parallel.
 Running startIDE on the TX-Pi allows for having Robo family device and ftDuino connected in parallel.
-
-A german user guide (Handbuch) is available: [ddoc/Manual_160_de.pdf](ddoc/Manual_160_de.pdf)
 
 See [ddoc/ReferenceSheet](ddoc/ReferenceSheet.pdf) for a list of functions implemented.
 
