@@ -1,6 +1,11 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
+# startIDE for the ftCommunity firmware on TXT and TX-Pi
+#          (c) 2017-2019 Peter David Habermehl
+#
+
+
 import sys, time, os, json, shutil
 import threading as thd
 import ftrobopy as txt
@@ -561,6 +566,7 @@ class execThread(QThread):
         
         self.interrupt=-1
         self.timestamp=time.time()
+        
         #if 1:
         try:
             while not self.halt and self.count<len(self.codeList):
@@ -732,6 +738,8 @@ class execThread(QThread):
         elif stack[0]== "ArraySave":    self.cmdArraySave(stack)
         elif stack[0]== "QueryArray":   self.cmdQueryArray(stack)
         elif stack[0]== "LookUpTable":  self.cmdLookUpTable(stack)
+        elif stack[0]== "I2CWrite":     self.cmdI2CWrite(stack)
+        elif stack[0]== "I2CRead":      self.cmdI2CRead(stack)
         
         else:
             self.cmdPrint("DontKnowWhatToDo\nin code:\n"+line)
@@ -2275,6 +2283,46 @@ class execThread(QThread):
             pass
         self.msg=0
 
+    def cmdI2CRead(self, stack):
+        device=stack[1]
+        arr=stack[2]
+
+        if not (arr in self.arrays):
+            self.cmdPrint("Array '" + stack[1] + "'\nreferenced without\nArrayInit!\nProgram terminated")
+            self.halt=True
+
+        if self.halt: return
+        
+        data=""
+        
+        if device=="FTD":
+            for i in self.array[self.arrays.index(arr)]:
+                data=data+str(i)+" "
+            
+            read=self.FTD.comm("i2c_read "+data)
+            
+            data=read.split()
+
+            self.array[self.arrays.index(arr)]=data
+
+        
+    def cmdI2CWrite(self, stack):
+        device=stack[1]
+        arr=stack[2]
+
+        if not (arr in self.arrays):
+            self.cmdPrint("Array '" + stack[1] + "'\nreferenced without\nArrayInit!\nProgram terminated")
+            self.halt=True
+
+        if self.halt: return
+        
+        data=""
+        
+        if device=="FTD":
+            for i in self.array[self.arrays.index(arr)]:
+                data=data+str(i)+" "
+                
+            self.FTD.comm("i2c_write "+data)
 
 #
 #
@@ -8622,7 +8670,8 @@ class FtcGuiApplication(TouchApplication):
                              QCoreApplication.translate("addcodeline","Message"),
                              QCoreApplication.translate("addcodeline","Logfile"),
                              QCoreApplication.translate("addcodeline","Graphics"),
-                             QCoreApplication.translate("addcodeline","Touch")
+                             QCoreApplication.translate("addcodeline","Touch"),
+                             QCoreApplication.translate("addcodeline","Communication")
                             ]
                           )
             ftb.setTextSize(3)
@@ -8685,8 +8734,19 @@ class FtcGuiApplication(TouchApplication):
                     if t:
                         if   p==QCoreApplication.translate("addcodeline","WaitForTouch"):   self.acl_waitForTouch()
                         elif p==QCoreApplication.translate("addcodeline","WaitForRelease"): self.acl_waitForRelease()
-                        elif p==QCoreApplication.translate("addcodeline","IfTouchArea"):    self.acl_ifTouchArea()
-                            
+                        elif p==QCoreApplication.translate("addcodeline","IfTouchArea"): self.acl_ifTouchArea()
+                elif p==QCoreApplication.translate("addcodeline","Communication"):
+                    ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Comm"), self.mainwindow)
+                    ftb.setButtons([ QCoreApplication.translate("addcodeline","I2CWrite"),
+                                    QCoreApplication.translate("addcodeline","I2CRead")
+                                    ]
+                                )                    
+                    ftb.setTextSize(3)
+                    ftb.setBtnTextSize(3)
+                    (t,p)=ftb.exec_()
+                    if t:
+                        if   p==QCoreApplication.translate("addcodeline","I2CWrite"):   self.acl_i2cwrite()
+                        elif p==QCoreApplication.translate("addcodeline","I2CRead"): self.acl_i2cread()                          
                             
     def acl(self,code):
         self.proglist.insertItem(self.proglist.currentRow()+1,code)
@@ -8903,6 +8963,12 @@ class FtcGuiApplication(TouchApplication):
     
     def acl_LookUpTable(self):
         self.acl("LookUpTable integer array nearest array 1")
+    
+    def acl_i2cwrite(self):
+        self.acl("I2CWrite FTD array")
+    
+    def acl_i2cread(self):
+        self.acl("I2CRead FTD array")
     
     def remCodeLine(self):
         row=self.proglist.currentRow()
@@ -9430,7 +9496,9 @@ class FtcGuiApplication(TouchApplication):
     def ecl_Array(self, itm, vari):
         arrays=[]
         for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="ArrayInit": arrays.append(self.proglist.item(i).text().split()[1])
+            if self.proglist.item(i).text().split()[0]=="ArrayInit":
+                a=self.proglist.item(i).text().split()[1]
+                if not a in arrays: arrays.append(a)
   
         if len(arrays)==0:
             t=TouchMessageBox(QCoreApplication.translate("ecl","Array"), self.mainwindow)
@@ -9456,7 +9524,9 @@ class FtcGuiApplication(TouchApplication):
     def ecl_ArrayStat(self, itm, vari):
         arrays=[]
         for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="ArrayInit": arrays.append(self.proglist.item(i).text().split()[1])
+            if self.proglist.item(i).text().split()[0]=="ArrayInit":  
+                a=self.proglist.item(i).text().split()[1]
+                if not a in arrays: arrays.append(a)
   
         if len(arrays)==0:
             t=TouchMessageBox(QCoreApplication.translate("ecl","ArrayStat"), self.mainwindow)
@@ -9482,7 +9552,9 @@ class FtcGuiApplication(TouchApplication):
     def ecl_ArrayLoad(self, itm):
         arrays=[]
         for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="ArrayInit": arrays.append(self.proglist.item(i).text().split()[1])
+            if self.proglist.item(i).text().split()[0]=="ArrayInit": 
+                a=self.proglist.item(i).text().split()[1]
+                if not a in arrays: arrays.append(a)
   
         if len(arrays)==0:
             t=TouchMessageBox(QCoreApplication.translate("ecl","ArrayLoad"), self.mainwindow)
@@ -9499,7 +9571,9 @@ class FtcGuiApplication(TouchApplication):
     def ecl_ArraySave(self, itm):
         arrays=[]
         for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="ArrayInit": arrays.append(self.proglist.item(i).text().split()[1])
+            if self.proglist.item(i).text().split()[0]=="ArrayInit": 
+                a=self.proglist.item(i).text().split()[1]
+                if not a in arrays: arrays.append(a)
   
         if len(arrays)==0:
             t=TouchMessageBox(QCoreApplication.translate("ecl","ArraySave"), self.mainwindow)
@@ -9516,7 +9590,9 @@ class FtcGuiApplication(TouchApplication):
     def ecl_QueryArray(self, itm):
         arrays=[]
         for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="ArrayInit": arrays.append(self.proglist.item(i).text().split()[1])   
+            if self.proglist.item(i).text().split()[0]=="ArrayInit": 
+                a=self.proglist.item(i).text().split()[1]
+                if not a in arrays: arrays.append(a)
 
         if len(arrays)==0:
             t=TouchMessageBox(QCoreApplication.translate("ecl","QueryArray"), self.mainwindow)
@@ -9540,7 +9616,9 @@ class FtcGuiApplication(TouchApplication):
     def ecl_LookUpTable(self, itm, vari):
         arrays=[]
         for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="ArrayInit": arrays.append(self.proglist.item(i).text().split()[1])   
+            if self.proglist.item(i).text().split()[0]=="ArrayInit": 
+                a=self.proglist.item(i).text().split()[1]
+                if not a in arrays: arrays.append(a)
 
         if len(arrays)==0:
             t=TouchMessageBox(QCoreApplication.translate("ecl","LookUpTable"), self.mainwindow)
