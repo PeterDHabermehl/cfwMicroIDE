@@ -932,6 +932,8 @@ class execThread(QThread):
         else:
             self.arrays.append(stack[1])
             self.array.append([])
+        if len(stack)>2:
+            self.array[ self.arrays.index(stack[1]) ] = stack[2].split(";")
     
     def cmdArray(self,stack):
         var=stack[1]
@@ -957,7 +959,7 @@ class execThread(QThread):
                 cc=0
                 for i in self.memory:
                     if i[0]==var:
-                        self.memory[cc][1] = self.array[self.arrays.index(arr)][idx]
+                        self.memory[cc][1] = int(self.array[self.arrays.index(arr)][idx])
                         break
                     cc=cc+1            
             else:
@@ -973,7 +975,7 @@ class execThread(QThread):
                 cc=0
                 for i in self.memory:
                     if i[0]==var:
-                        self.memory[cc][1] = self.array[self.arrays.index(arr)][idx]
+                        self.memory[cc][1] = int(self.array[self.arrays.index(arr)][idx])
                         del self.array[self.arrays.index(arr)][idx]
                         break
                     cc=cc+1            
@@ -2302,7 +2304,8 @@ class execThread(QThread):
             read=self.FTD.comm("i2c_read "+data)
             
             data=read.split()
-
+            if data[0]=="Fail": data=[]
+            
             self.array[self.arrays.index(arr)]=data
 
         
@@ -5541,7 +5544,6 @@ class editFromPoly(TouchDialog):
         self.A.mousePressEvent=self.getA
         
         self.A.setText(self.cmdline.split()[3])
-        #self.A.textChanged.connect(self.AChanged)
         
         h.addWidget(self.A)
         self.layout.addLayout(h)
@@ -5558,7 +5560,6 @@ class editFromPoly(TouchDialog):
         self.B.setStyleSheet("font-size: 18px;")
         
         self.B.setText(self.cmdline.split()[4])
-        #self.B.textChanged.connect(self.BChanged)
         self.B.mousePressEvent=self.getB
         
         h.addWidget(self.B)      
@@ -5575,7 +5576,6 @@ class editFromPoly(TouchDialog):
         self.C.setStyleSheet("font-size: 18px;")
         
         self.C.setText(self.cmdline.split()[5])
-        #self.C.textChanged.connect(self.CChanged)
         self.C.mousePressEvent=self.getC
         
         h.addWidget(self.C)      
@@ -5592,7 +5592,6 @@ class editFromPoly(TouchDialog):
         self.D.setStyleSheet("font-size: 18px;")
         
         self.D.setText(self.cmdline.split()[6])
-        #self.D.textChanged.connect(self.DChanged)
         self.D.mousePressEvent=self.getD
         
         h.addWidget(self.D)      
@@ -6850,6 +6849,132 @@ class editVarToText(TouchDialog):
             t=a
         self.value.setText(str(int(t)))
 
+class editArrayInit(TouchDialog):
+    def __init__(self, cmdline, arrays, parent=None):
+        TouchDialog.__init__(self, "ArrayInit", parent)
+        
+        self.cmdline=cmdline
+        self.arrays=arrays
+        self.parent=parent
+        
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.timedOut)
+        
+        self.layout=QVBoxLayout()
+        
+        k3=QVBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl","Array name"))
+        l.setStyleSheet("font-size: 20px;")
+        k3.addWidget(l)     
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 20px;")
+        self.value.setText(self.cmdline.split()[1])
+        self.value.mousePressEvent=self.valPress
+        self.value.mouseReleaseEvent=self.valRelease
+        k3.addWidget(self.value)
+                
+        self.layout.addLayout(k3)
+    
+        self.layout.addStretch()
+        
+        k13=QVBoxLayout()
+        
+        k11=QLabel("Init data")
+        k11.setStyleSheet("font-size: 20px;")
+        
+        k13.addWidget(k11)
+        k13.addStretch()
+        
+        if len(self.cmdline.split())>2:
+            iv=self.cmdline.split()[2]
+        else: iv=""
+        self.pulses=QLineEdit(iv)
+        self.pulses.setReadOnly(True)
+        self.pulses.setStyleSheet("font-size: 20px;")
+        self.pulses.mousePressEvent=self.plsPress
+        self.pulses.mouseReleaseEvent=self.plsRelease
+        k13.addWidget(self.pulses)
+        
+        self.layout.addLayout(k13)
+        
+        self.layout.addStretch()
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="ArrayInit "
+        self.cmdline=self.cmdline + self.value.text()
+        self.cmdline=self.cmdline + " " + self.pulses.text()
+        self.close()
+    
+    def ifChanged(self):
+        pass
+    
+    def valPress(self,sender):
+        
+        if self.timer.isActive(): self.timer.stop()
+        self.btn=1
+        self.btnTimedOut=False
+        self.timer.start(500)
+    
+    def timedOut(self):
+        self.btnTimedOut=True
+        self.timer.stop()
+        
+        if self.btn==1:
+            if len(self.arrays)>0:
+                (s,r)=TouchAuxListRequester("Array","Name",self.arrays,self.arrays[0],"Okay").exec_()
+                self.value.setText(r)
+            else:
+                self.getValue(1)
+                
+        else: self.getPulses(self)
+            
+    def valRelease(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            self.getValue(1)
+    
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Name"),a,self.parent).exec_()
+        if t[0] in "0123456789": t="i"+t
+        self.value.setText(t)
+        
+    def plsPress(self,sender):
+        if self.timer.isActive(): self.timer.stop()
+        self.btnTimedOut=False
+        self.btn=2
+        self.timer.start(500)
+     
+    def plsRelease(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            self.getPulses(1)
+            
+    def getPulses(self,m):
+        a=self.pulses.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Values"),a,self.parent).exec_()
+        
+        res=""
+        for ch in t:
+          if ch in "1234567890-;": res=res+ch
+        
+        self.pulses.setText(res)
+
 class editArray(TouchDialog):
     def __init__(self, cmdline, vari, arrays, parent=None):
         TouchDialog.__init__(self, QCoreApplication.translate("ecl","Array"), parent)
@@ -7237,7 +7362,7 @@ class editArrayStat(TouchDialog):
     def on_confirm(self):
         self.cmdline = "ArrayStat " +self.target.itemText(self.target.currentIndex()) + " "
         self.cmdline = self.cmdline + self.data.itemText(self.data.currentIndex()) + " "
-        self.cmdline = self.cmdline + self.array.itemText(self.array.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.array.itemText(self.array.currentIndex())
 
         self.close()
 
@@ -7306,9 +7431,10 @@ class editArrayLoad(TouchDialog):
 
     def on_confirm(self):
         self.cmdline = "ArrayLoad " + self.array.itemText(self.array.currentIndex()) + " "
-        self.cmdline = self.cmdline + self.data.itemText(self.data.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.data.itemText(self.data.currentIndex())
 
         self.close()
+        
 class editArraySave(TouchDialog):
     def __init__(self, cmdline, arrays, parent=None):
         TouchDialog.__init__(self, QCoreApplication.translate("ecl","ArraySave"), parent)
@@ -7374,9 +7500,85 @@ class editArraySave(TouchDialog):
 
     def on_confirm(self):
         self.cmdline = "ArraySave " + self.array.itemText(self.array.currentIndex()) + " "
-        self.cmdline = self.cmdline + self.data.itemText(self.data.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.data.itemText(self.data.currentIndex())
 
         self.close()
+
+def editI2CRead(cmdline, arrays, parent):
+    return editI2C(cmdline, "I2CRead", arrays, parent).exec_()
+
+def editI2CWrite(cmdline, arrays, parent):
+    return editI2C(cmdline, "I2CWrite", arrays, parent).exec_()
+
+class editI2C(TouchDialog):    
+    def __init__(self, cmdline, xcmd, arrays, parent=None):
+        TouchDialog.__init__(self, xcmd, parent)
+        
+        self.cmdline=cmdline
+        self.arrays=arrays
+        self. xcmd=xcmd
+        
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+    
+        self.titlebar.setCancelButton()
+
+        
+        self.layout=QVBoxLayout()
+        
+        #
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Device:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        
+        self.layout.addLayout(h)
+
+        self.interface=QComboBox()
+        self.interface.setStyleSheet("font-size: 18px;")
+        self.interface.addItems(["SRD","TXT","FTD"])
+
+        if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(1)
+        elif self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(2)
+        
+        h.addWidget(self.interface)
+        
+        
+        h=QHBoxLayout()
+        l=QLabel(QCoreApplication.translate("ecl", "Array:"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        h.addWidget(l)
+        
+        self.array=QComboBox()
+        self.array.setStyleSheet("font-size: 18px;")
+        self.array.addItems(self.arrays)
+
+        if self.cmdline.split()[2] in self.arrays:
+            self.array.setCurrentIndex(self.arrays.index(self.cmdline.split()[2]))
+        else:
+            self.array.setCurrentIndex(0)
+
+        h.addWidget(self.array)
+
+        self.layout.addLayout(h)
+        self.layout.addStretch()
+        
+        
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+
+    def on_confirm(self):
+        self.cmdline = self.xcmd + " " + self.interface.itemText(self.interface.currentIndex()) + " "
+        self.cmdline = self.cmdline + self.array.itemText(self.array.currentIndex()) 
+
+        self.close()
+
 #
 # main GUI application
 #
@@ -9058,6 +9260,8 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "ArraySave":  itm=self.ecl_ArraySave(itm)
         elif stack[0] == "QueryArray": itm=self.ecl_QueryArray(itm)
         elif stack[0] == "LookUpTable": itm=self.ecl_LookUpTable(itm, vari)
+        elif stack[0] == "I2CRead":     itm=self.ecl_I2CRead(itm)
+        elif stack[0] == "I2CWrite":    itm=self.ecl_I2CWrite(itm)
         
         
         self.proglist.setCurrentRow(crow)
@@ -9069,6 +9273,52 @@ class FtcGuiApplication(TouchApplication):
             if s=="RIF" or s=="TXT" or s=="FTD": self.lastIF=s
         except:
             pass
+
+    def checkVar(self, title, varlist):
+        if len(varlist)==0:
+            t=TouchMessageBox(title, self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+            return False
+        
+        return True
+    
+    def checkArrays(self, title):
+        arrays=[]
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="ArrayInit": 
+                a=self.proglist.item(i).text().split()[1]
+                if not a in arrays: arrays.append(a)
+
+        if arrays==[]:
+            t=TouchMessageBox(title, self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+        return arrays
+    
+    def checkTags(self, title):
+        tagteam=[]
+  
+        for i in range(0,self.proglist.count()):
+            if self.proglist.item(i).text().split()[0]=="Tag": tagteam.append(self.proglist.item(i).text()[3:])
+
+        if tagteam==[]:
+            t=TouchMessageBox(title, self.mainwindow)
+            t.setCancelButton()
+            t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
+            t.setTextSize(2)
+            t.setBtnTextSize(2)
+            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
+            (v1,v2)=t.exec_()
+        return tagteam
 
     def ecl_counterClear(self, itm):
         return editCounterClear(itm, self.mainwindow).exec_()
@@ -9098,36 +9348,14 @@ class FtcGuiApplication(TouchApplication):
         return editWaitForInput(itm,vari,self.mainwindow).exec_()
     
     def ecl_ifInputDig(self, itm, vari):
-        tagteam=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="Tag": tagteam.append(self.proglist.item(i).text()[4:])
-  
-        if len(tagteam)==0:          
-            t=TouchMessageBox(QCoreApplication.translate("ecl","IfInDig"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        tagteam=self.checkTags("IfInputDig")
+        if tagteam==[]: return itm
         
         return editIfInputDig(itm,tagteam,vari, self.mainwindow).exec_()
     
     def ecl_ifInput(self, itm, varlist):
-        tagteam=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="Tag": tagteam.append(self.proglist.item(i).text()[4:])
-  
-        if len(tagteam)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","IfIn"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        tagteam=self.checkTags("IfInput")
+        if tagteam==[]: return itm
         
         return editIfInput(itm,tagteam, varlist, self.mainwindow).exec_()
     
@@ -9135,93 +9363,38 @@ class FtcGuiApplication(TouchApplication):
         return editInit(itm, varlist, self.mainwindow).exec_()
     
     def ecl_fromIn(self, itm, varlist):
-        if len(varlist)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","FromIn"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        if self.checkVar(QCoreApplication.translate("ecl","FromIn"),varlist)==False: return itm
         
         return editFromIn(itm, varlist, self.mainwindow).exec_()
 
     def ecl_fromPoly(self, itm, varlist):
-        if len(varlist)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","FromPoly"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        if self.checkVar(QCoreApplication.translate("ecl","FromPoly"),varlist)==False: return itm
         
         return editFromPoly(itm, varlist, self.mainwindow).exec_()
 
     def ecl_fromSys(self, itm, varlist):
-        if len(varlist)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","FromSys"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        if self.checkVar(QCoreApplication.translate("ecl","FromSys"),varlist)==False: return itm
         
         return editFromSys(itm, varlist, self.mainwindow).exec_()
 
     def ecl_fromKeypad(self, itm, varlist):
-        if len(varlist)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","FromKeypad"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        if self.checkVar(QCoreApplication.translate("ecl","FromKeypad"),varlist)==False: return itm
         
         return editFromKeypad(itm, varlist, self.mainwindow).exec_()        
     
     def ecl_fromDial(self, itm, varlist):
-        if len(varlist)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","FromKeypad"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        if self.checkVar(QCoreApplication.translate("ecl","FromDial"),varlist)==False: return itm
         
         return editFromDial(itm, varlist, self.mainwindow).exec_()  
 
     def ecl_fromButtons(self, itm, varlist):
-        if len(varlist)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","FromButtons"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        if self.checkVar(QCoreApplication.translate("ecl","FromButtons"),varlist)==False: return itm
         
         return editFromButtons(itm, varlist, self.mainwindow).exec_()  
 
     def ecl_queryVar(self, itm, varlist):
-        if len(varlist)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","QueryVar"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        if self.checkVar(QCoreApplication.translate("ecl","QueryVar"),varlist)==False: return itm
+    
         r=varlist[0]
         if itm.split()[1] in varlist:
             r=itm.split()[1]
@@ -9231,59 +9404,20 @@ class FtcGuiApplication(TouchApplication):
         return itm
     
     def ecl_ifVar(self, itm, varlist):
-        tagteam=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="Tag": tagteam.append(self.proglist.item(i).text()[4:])
-  
-        if len(tagteam)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","IfVar"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        tagteam=self.checkTags("IfVar")
+        if tagteam==[]: return itm
 
-        if len(varlist)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","IfVar"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        if self.checkVar(QCoreApplication.translate("ecl","IfVar"),varlist)==False: return itm
         
         return editIfVar(itm,tagteam, varlist, self.mainwindow).exec_()
 
     def ecl_ifTouchArea(self, itm, varlist):
-        tagteam=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="Tag": tagteam.append(self.proglist.item(i).text()[4:])
-  
-        if len(tagteam)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","IfTouchArea"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
-
+        tagteam=self.checkTags("IfTouchArea")
+        if tagteam==[]: return itm
         return editIfTouchArea(itm,tagteam, varlist, self.mainwindow).exec_()
 
     def ecl_calc(self, itm, varlist):
-        if len(varlist)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","Calc"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        if self.checkVar(QCoreApplication.translate("ecl","Calc"),varlist)==False: return itm
         
         return editCalc(itm, varlist, self.mainwindow).exec_()
         
@@ -9296,18 +9430,8 @@ class FtcGuiApplication(TouchApplication):
     def ecl_jump(self, itm):
         itm=itm[5:]
         tagteam=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="Tag": tagteam.append(self.proglist.item(i).text()[4:])
-  
-        if len(tagteam)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","Jump"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return "Jump "+itm
+        tagteam=self.checkTags("Jump")
+        if tagteam==[]: return "Jump "+itm
         
         if not itm in tagteam: itm=tagteam[0]
         (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","Jump"),QCoreApplication.translate("ecl","Target"),tagteam,itm,"Okay", self.mainwindow).exec_()
@@ -9316,19 +9440,8 @@ class FtcGuiApplication(TouchApplication):
         return "Jump "+r
         
     def ecl_loopTo(self, itm, vari):
-        tagteam=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="Tag": tagteam.append(self.proglist.item(i).text()[4:])
-  
-        if len(tagteam)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","LoopTo"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        tagteam=self.checkTags("LoopTo")
+        if tagteam==[]: return itm
         
         return editLoopTo(itm,tagteam,vari,self.mainwindow).exec_()
     
@@ -9355,27 +9468,19 @@ class FtcGuiApplication(TouchApplication):
         return "Delay "+itm[6:]
     
     def ecl_iftimer(self, itm, vari):
-        tagteam=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="Tag": tagteam.append(self.proglist.item(i).text()[4:])
-  
-        if len(tagteam)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","IfTimer"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Tags defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        tagteam=self.checkTags("IfTimer")
+        if tagteam==[]: return itm
         
         return editIfTimer(itm,tagteam,vari,self.mainwindow).exec_()
     
     def ecl_interrupt(self, itm, vari):
         tagteam=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="Module":
-                tagteam.append(self.proglist.item(i).text().split()[1])
+        if itm.split()[0]=="CallExt":
+            tagteam=os.listdir(moddir)
+            tagteam.sort()
+        else:    
+            for i in range(0,self.proglist.count()):
+                if self.proglist.item(i).text().split()[0]=="Module": tagteam.append(self.proglist.item(i).text()[7:])
   
         if len(tagteam)==0:
             t=TouchMessageBox(QCoreApplication.translate("ecl","Interrupt"), self.mainwindow)
@@ -9479,130 +9584,51 @@ class FtcGuiApplication(TouchApplication):
         return editText(itm, vari, self.mainwindow).exec_()
 
     def ecl_varToText(self, itm, vari):
-        if len(vari)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","VarToText"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        if self.checkVar(QCoreApplication.translate("ecl","VarToText"),vari)==False: return itm
+    
         return editVarToText(itm, vari, self.mainwindow).exec_()
     
     def ecl_ArrayInit(self,itm):
-        return "ArrayInit " + clean(TouchAuxKeyboard(QCoreApplication.translate("ecl","ArrayInit"),itm.split()[1],self.mainwindow).exec_(),32)
-
-    def ecl_Array(self, itm, vari):
         arrays=[]
         for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="ArrayInit":
+            if self.proglist.item(i).text().split()[0]=="ArrayInit": 
                 a=self.proglist.item(i).text().split()[1]
                 if not a in arrays: arrays.append(a)
-  
-        if len(arrays)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","Array"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
-        if len(vari)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","Array"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+                
+        return editArrayInit(itm, arrays, self.mainwindow).exec_()
+        # return "ArrayInit " + clean(TouchAuxKeyboard(QCoreApplication.translate("ecl","ArrayInit"),itm.split()[1],self.mainwindow).exec_(),32)
+
+    def ecl_Array(self, itm, vari):
+        arrays=self.checkArrays(QCoreApplication.translate("ecl","Array"))
+        if arrays==[]: return itm
+        
+        if self.checkVar(QCoreApplication.translate("ecl","Array"),vari)==False: return itm
         
         return editArray(itm, vari, arrays, self.mainwindow).exec_()
     
     def ecl_ArrayStat(self, itm, vari):
-        arrays=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="ArrayInit":  
-                a=self.proglist.item(i).text().split()[1]
-                if not a in arrays: arrays.append(a)
-  
-        if len(arrays)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","ArrayStat"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
-        if len(vari)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","ArrayStat"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        arrays=self.checkArrays(QCoreApplication.translate("ecl","ArrayStat"))
+        if arrays==[]: return itm
+    
+        if self.checkVar(QCoreApplication.translate("ecl","ArrayStat"),vari)==False: return itm
         
         return editArrayStat(itm, vari, arrays, self.mainwindow).exec_()
     
     def ecl_ArrayLoad(self, itm):
-        arrays=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="ArrayInit": 
-                a=self.proglist.item(i).text().split()[1]
-                if not a in arrays: arrays.append(a)
-  
-        if len(arrays)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","ArrayLoad"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exe
-            return itm
+        arrays=self.checkArrays(QCoreApplication.translate("ecl","ArrayLoad"))
+        if arrays==[]: return itm
     
         return editArrayLoad(itm, arrays, self.mainwindow).exec_()
     
     def ecl_ArraySave(self, itm):
-        arrays=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="ArrayInit": 
-                a=self.proglist.item(i).text().split()[1]
-                if not a in arrays: arrays.append(a)
-  
-        if len(arrays)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","ArraySave"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exe
-            return itm
+        arrays=self.checkArrays(QCoreApplication.translate("ecl","ArraySave"))
+        if arrays==[]: return itm
         
         return editArraySave(itm, arrays, self.mainwindow).exec_()
     
     def ecl_QueryArray(self, itm):
-        arrays=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="ArrayInit": 
-                a=self.proglist.item(i).text().split()[1]
-                if not a in arrays: arrays.append(a)
-
-        if len(arrays)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","QueryArray"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        arrays=self.checkArrays(QCoreApplication.translate("ecl","QueryArray"))
+        if arrays==[]: return itm
             
         if itm.split()[1] in arrays: 
             (s,r)=TouchAuxListRequester(QCoreApplication.translate("ecl","QueryArray"),QCoreApplication.translate("ecl","Select array"),arrays,itm.split()[1],"Okay").exec_()
@@ -9614,32 +9640,22 @@ class FtcGuiApplication(TouchApplication):
         return itm
 
     def ecl_LookUpTable(self, itm, vari):
-        arrays=[]
-        for i in range(0,self.proglist.count()):
-            if self.proglist.item(i).text().split()[0]=="ArrayInit": 
-                a=self.proglist.item(i).text().split()[1]
-                if not a in arrays: arrays.append(a)
-
-        if len(arrays)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","LookUpTable"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No Arrays defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
-        if len(vari)==0:
-            t=TouchMessageBox(QCoreApplication.translate("ecl","LookUpTable"), self.mainwindow)
-            t.setCancelButton()
-            t.setText(QCoreApplication.translate("ecl","No variables defined!"))
-            t.setTextSize(2)
-            t.setBtnTextSize(2)
-            t.setPosButton(QCoreApplication.translate("ecl","Okay"))
-            (v1,v2)=t.exec_()
-            return itm
+        arrays=self.checkArrays(QCoreApplication.translate("ecl","LookUpTable"))
+        if arrays==[]: return itm
+        
+        if self.checkVar(QCoreApplication.translate("ecl","LookUpTable"),vari)==False: return itm
             
         return editLookUpTable(itm, vari, arrays, self.mainwindow).exec_()
+    
+    def ecl_I2CRead(self, itm):
+        arrays=self.checkArrays("I2CRead")
+        if arrays==[]: return itm
+        return editI2CRead(itm, arrays, self.mainwindow)
+    
+    def ecl_I2CWrite(self, itm):
+        arrays=self.checkArrays("I2CWrite")
+        if arrays==[]: return itm
+        return editI2CWrite(itm, arrays, self.mainwindow)
     
 #
 # and the initial application launch
