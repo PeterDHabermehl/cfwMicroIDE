@@ -567,8 +567,8 @@ class execThread(QThread):
         self.interrupt=-1
         self.timestamp=time.time()
         
-        #if 1:
-        try:
+        if 1:
+        #try:
             while not self.halt and self.count<len(self.codeList):
                 line=self.codeList[self.count]
                 if self.trace: self.cmdPrint(str(self.count)+":"+line)
@@ -581,8 +581,8 @@ class execThread(QThread):
                     
                 self.count=self.count+1
                 self.parent.processEvents()
-        #else:
-        except:
+        else:
+        #except:
             self.cce=True
             self.halt=True
                 
@@ -1398,9 +1398,8 @@ class execThread(QThread):
         y1=self.getVal(stack[2])
         x2=self.getVal(stack[3])
         y2=self.getVal(stack[4])
-        
         if self.halt: return
-        
+
         if (self.touchEventX >= x1) and (self.touchEventY >= y1) and (self.touchEventX <= x2) and (self.touchEventY <= y2):
             n=-1
             for line in self.jmpTable:
@@ -1745,9 +1744,7 @@ class execThread(QThread):
         if self.halt: return
         
         if stack[1]=="SRD":
-            self.SRD.flushInput()
-            self.SRD.flushOutput()
-            self.SRD.write(("pwm_set "+str(int((stack[2])[1:]))+" 0 "+str(v)+"\n").encode("utf-8"))
+            srdcomm(self.SRD, "pwm_set "+str(int((stack[2])[1:]))+" 0 "+str(v))
         elif stack[1]=="TXT":
             # self.txt_o[int(stack[2])-1].setLevel(v)
             pass
@@ -2296,17 +2293,18 @@ class execThread(QThread):
         if self.halt: return
         
         data=""
-        
+        for i in self.array[self.arrays.index(arr)]:
+            data=data+str(i)+" "  
+            
         if device=="FTD":
-            for i in self.array[self.arrays.index(arr)]:
-                data=data+str(i)+" "
-            
             read=self.FTD.comm("i2c_read "+data)
+        elif device=="SRD":            
+            read=srdcomm(self.SRD, "i2c_read "+data)    
+
+        data=read.split()
+        if data[0]=="Fail" or data[0].strip()=="": data=[]
             
-            data=read.split()
-            if data[0]=="Fail": data=[]
-            
-            self.array[self.arrays.index(arr)]=data
+        self.array[self.arrays.index(arr)]=data
 
         
     def cmdI2CWrite(self, stack):
@@ -2320,12 +2318,31 @@ class execThread(QThread):
         if self.halt: return
         
         data=""
-        
-        if device=="FTD":
-            for i in self.array[self.arrays.index(arr)]:
-                data=data+str(i)+" "
-                
+        for i in self.array[self.arrays.index(arr)]:
+            data=data+str(i)+" "
+            
+        if device=="FTD":                
             self.FTD.comm("i2c_write "+data)
+        
+        elif device=="SRD":
+            srdcomm(self.SRD, "i2c_write "+data)
+
+
+def srdcomm(device, command):
+    try:
+        command=(command+"\n").encode("utf-8")
+        device.flushInput()
+        device.flushOutput()
+        device.write(command)
+        data = device.readline()
+        
+        if data:
+            if len(data.decode("utf-8"))>2: return data.decode("utf-8")[:-2]
+            return "Fail"
+        else: 
+            return "Fail"
+    except:
+        return "Fail"
 
 #
 #
