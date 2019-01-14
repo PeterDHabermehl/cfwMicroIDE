@@ -1,4 +1,5 @@
 News<hr>
+v1.6.9:<br>I2C read and write commands<hr>
 v1.6.6:<br>Release incl. servo support<hr>
 v1.6.5:<br>Added I2C servo support for FTD and SRD<hr>
 v1.6.3:<br>Added "Canvas load" to import png pixmaps<hr>
