@@ -184,6 +184,7 @@ class execThread(QThread):
         self.parent.msgBack.connect(self.msgBack)
         self.parent.IMsgBack.connect(self.IMsgBack)
         self.parent.gfxData.connect(self.gfxData)
+        self.parent.mousePos.connect(self.mousePos)
         self.parent.stop.connect(self.stop)
         self.parent.canvasReturn.connect(self.onCanvasReturn)
         self.parent.click.connect(self.onTouch)
@@ -220,8 +221,11 @@ class execThread(QThread):
         
         self.getCanvasData()
 
+        self.touched=False
         self.touchEventX=0
         self.touchEventY=0
+        self.actXPos=0
+        self.actYPos=0
 
         cnt=0
         mcnt=0
@@ -567,8 +571,8 @@ class execThread(QThread):
         self.interrupt=-1
         self.timestamp=time.time()
         
-        if 1:
-        #try:
+        #if 1:
+        try:
             while not self.halt and self.count<len(self.codeList):
                 line=self.codeList[self.count]
                 if self.trace: self.cmdPrint(str(self.count)+":"+line)
@@ -581,8 +585,8 @@ class execThread(QThread):
                     
                 self.count=self.count+1
                 self.parent.processEvents()
-        else:
-        #except:
+        #else:
+        except:
             self.cce=True
             self.halt=True
                 
@@ -658,6 +662,13 @@ class execThread(QThread):
         self.CpBlue = pblue
         self.msg=1
         self.can=1
+        
+    def mousePos(self, x, y):
+        self.actXPos=x
+        self.actYPos=y
+        self.msg=1
+        self.can=1
+        
         
     def parseLine(self,line):
         stack=line.split()
@@ -770,12 +781,10 @@ class execThread(QThread):
         self.touchEventX=thing.x()
         self.touchEventY=thing.y()
         self.touched=True
-        self.released=False
         
     def onRelease(self,thing):
         self.touchEventX=thing.x()
         self.touchEventY=thing.y()
-        self.released=True
         self.touched=False
         
     def cmdWaitForTouch(self):
@@ -783,9 +792,9 @@ class execThread(QThread):
         while self.touched==False and not self.halt:
             self.parent.processEvents()
 
-    def cmdWaitForRelease(self):
-        if not self.touched: self.released=False        
-        while self.released==False and not self.halt:
+    def cmdWaitForRelease(self):      
+        self.touched=True
+        while self.touched==True and not self.halt:
             self.parent.processEvents()
     
     def cmdLookUpTable(self, stack):
@@ -1218,6 +1227,15 @@ class execThread(QThread):
             t=self.touchEventX
         elif stack[2]=="touchYPos":
             t=self.touchEventY
+        elif stack[2]=="touch":
+            if self.touched==True: t=1
+            else: t=0
+        elif stack[2]=="actXPos":
+            self.getMousePos()
+            t=self.actXPos
+        elif stack[2]=="actYPos":
+            self.getMousePos()
+            t=self.actYPos
         else:
             t=-1
         
@@ -1234,6 +1252,12 @@ class execThread(QThread):
     def getCanvasData(self):
         self.msg=0
         self.canvasSig.emit("requestData")
+        while self.msg==0:
+            self.parent.processEvents()
+    
+    def getMousePos(self):
+        self.msg=0
+        self.canvasSig.emit("requestPos")
         while self.msg==0:
             self.parent.processEvents()
     
@@ -2331,9 +2355,12 @@ class execThread(QThread):
 def srdcomm(device, command):
     try:
         command=(command+"\n").encode("utf-8")
+        
         device.flushInput()
         device.flushOutput()
+        
         device.write(command)
+        
         data = device.readline()
         
         if data:
@@ -5759,7 +5786,7 @@ class editFromSys(TouchDialog):
         f=["timer","hour","minute","second","year","month","day",
            "RIIR","dispBtn",
            "CxRes","CyRes","CxPos","CyPos","CpRed","CpGreen","CpBlue",
-           "touchXPos","touchYPos"]
+           "touch","touchXPos","touchYPos","actXPos","actYPos"]
         self.data=QComboBox()
         self.data.setStyleSheet("font-size: 18px;")
         self.data.addItems(f)
@@ -7605,6 +7632,7 @@ class FtcGuiApplication(TouchApplication):
     msgBack=pyqtSignal(int)
     IMsgBack=pyqtSignal(str)
     stop=pyqtSignal()
+    mousePos=pyqtSignal(int, int)
     gfxData=pyqtSignal(int, int, int, int, int, int, int)
     canvasReturn=pyqtSignal()
     click=pyqtSignal(QMouseEvent)
@@ -8419,6 +8447,9 @@ class FtcGuiApplication(TouchApplication):
                               self.canvas.height(),
                               self.xpos,
                               self.ypos, QtGui.qRed(rgb), QtGui.qGreen(rgb), QtGui.qBlue(rgb))
+        elif s[0]=="requestPos":
+            i=self.canvas.mapFromGlobal(QCursor().pos())
+            self.mousePos.emit(i.x(), i.y())
         elif s[1]=="show":
             self.canvas.show()
             self.canvasReturn.emit()
