@@ -27,15 +27,13 @@ try:
 except:
     FTDUINO_DIRECT=False
 
+# set GPIO for display HW buttons to false until checked for display size
 try:
     import RPi.GPIO as gpio
-    gpio.setmode(gpio.BOARD)
-    gpio.setup(12, gpio.IN, pull_up_down = gpio.PUD_UP)
-    gpio.setup(16, gpio.IN, pull_up_down = gpio.PUD_UP)
-    gpio.setup(18, gpio.IN, pull_up_down = gpio.PUD_UP)
-    GPIO=True
 except:
-    GPIO=False
+    pass
+GPIO=False
+
 
 # set serial path for libroboint (i.e. to use Intelligent Interface on USB-Serial-Adapter)
 #RIFSERIAL="/dev/ttyUSB0"
@@ -403,8 +401,8 @@ class execThread(QThread):
         self.clrOut()
         
         if self.requireSRD:
-            if 1:
-            #try:
+            #if 1:
+            try:
                 SRDdevices=USBScan(SRDVIDPID)
                 if len(SRDdevices)==1:
                     self.SRD=serial.Serial(SRDdevices[0], 115200, timeout=0.3, writeTimeout = 0.3)
@@ -429,8 +427,8 @@ class execThread(QThread):
                 else:
                     self.msgOut(QCoreApplication.translate("exec","servoDuino detect error!\nProgram terminated\n"))                
                     if not IGNOREMISSING: self.stop()                    
-            else:
-            #except:
+            #else:
+            except:
                 self.msgOut(QCoreApplication.translate("exec","servoDuino not found!\nProgram terminated\n"))                
                 if not IGNOREMISSING: self.stop()
         if self.requireTXT and self.TXT==None:
@@ -667,7 +665,7 @@ class execThread(QThread):
         self.actXPos=x
         self.actYPos=y
         self.msg=1
-        self.can=1
+        #self.can=1
         
         
     def parseLine(self,line):
@@ -1067,7 +1065,6 @@ class execThread(QThread):
     def waitForCanvasReturn(self):
         while self.can==0:
             self.parent.processEvents()
-            #pass
             
     def onCanvasReturn(self):
         self.can=1
@@ -1351,6 +1348,33 @@ class execThread(QThread):
         elif op==">"  and (v1>v2): res=1 
         elif op==">=" and (v1>=v2): res=1 
         elif op=="<=" and (v1<=v2): res=1
+        elif op=="sign":
+            v1=int(v1)
+            v2=int(v2)
+            res=v1
+            if v1 > (2**(v2-1)): res = v1 - (2**v2)
+        elif op=="unsign":
+            v1=int(v1)
+            v2=int(v2)
+            res=v1
+            if v1 < 0: res = v1 + (2**v2)
+        elif op=="bitShift":
+            v1=int(v1)
+            v2=int(v2)
+            if v2 < 0: res = v1 >> abs(v2)
+            else: res = v1 << v2
+        elif op=="bitAnd":
+            v1=int(v1)
+            v2=int(v2)
+            res = v1 & v2
+        elif op=="bitOr":
+            v1=int(v1)
+            v2=int(v2)
+            res = v1 | v2
+        elif op=="bitXOr":
+            v1=int(v1)
+            v2=int(v2)
+            res = v1 ^ v2 
         elif op=="tempMeingast":
             a=2.15992060279525E-07
             b=-0.007569625106584
@@ -3716,13 +3740,12 @@ class editLoopTo(TouchDialog):
         self.tags=QListWidget()
         self.tags.setStyleSheet("font-size: 20px;")
         self.tags.addItems(self.taglist)
-        try:
-            t=0
-            for tag in self.taglist:
-               if self.taglist[t]==self.cmdline.split()[1]: self.tags.setCurrentRow(t)
-               t=t+1
-        except:
-            self.tags.setCurrentRow(0)
+        self.tags.setCurrentRow(0)
+        t=0
+        for tag in self.taglist:
+            if self.taglist[t]==self.cmdline.split()[1]: self.tags.setCurrentRow(t)
+            t=t+1
+            
             
         self.layout.addWidget(self.tags)
         
@@ -5445,7 +5468,7 @@ class editCalc(TouchDialog):
         
         self.operator=QComboBox()
         self.operator.setStyleSheet("font-size: 18px;")
-        oplist=["+", "-", "*", "/", "div", "digit", "mod", "exp", "root", "min", "max", "sin", "cos", "random", "mean", "&&","||","<","<=","==","!=",">=",">"]
+        oplist=["+", "-", "*", "/", "div", "digit", "mod", "exp", "root", "min", "max", "sin", "cos", "random", "mean", "&&","||","<","<=","==","!=",">=",">","sign","unsign","bitShift","bitAnd","bitOr","bitXOr"]
         self.operator.addItems(oplist)
         if self.cmdline.split()[3] in oplist:
             self.operator.setCurrentIndex(oplist.index(self.cmdline.split()[3]))
@@ -7694,11 +7717,25 @@ class FtcGuiApplication(TouchApplication):
         self.mainwindow = TouchWindow("startIDE")
         
         # query screen orientation
-        
-        if self.mainwindow.width()>self.mainwindow.height():
+        mww=self.mainwindow.width()
+        mwh=self.mainwindow.height()
+        if mww>mwh:
             self.orientation=LANDSCAPE
         else:
             self.orientation=PORTRAIT
+        
+        # set GPIO for 240x320 displays
+        try:
+            if (mww==240 and mwh==320) or (mww==320 and mwh==240) :
+                gpio.setmode(gpio.BOARD)
+                gpio.setup(12, gpio.IN, pull_up_down = gpio.PUD_UP)
+                gpio.setup(16, gpio.IN, pull_up_down = gpio.PUD_UP)
+                gpio.setup(18, gpio.IN, pull_up_down = gpio.PUD_UP)
+                GPIO=True
+        except:
+            GPIO=False
+        
+        
         
         # add a menu
         
@@ -7838,6 +7875,8 @@ class FtcGuiApplication(TouchApplication):
         self.canvas.setPixmap(QPixmap(canvasSize, canvasSize))
         self.canvas.hide()
         self.painter=QImage(canvasSize, canvasSize, QImage.Format_RGB32)
+        self.painter.setDotsPerMeterX(3780)
+        self.painter.setDotsPerMeterY(3780)
         self.canvas.mousePressEvent=self.click.emit
         self.canvas.mouseReleaseEvent=self.release.emit
         
@@ -8448,8 +8487,9 @@ class FtcGuiApplication(TouchApplication):
                               self.xpos,
                               self.ypos, QtGui.qRed(rgb), QtGui.qGreen(rgb), QtGui.qBlue(rgb))
         elif s[0]=="requestPos":
-            i=self.canvas.mapFromGlobal(QCursor().pos())
-            self.mousePos.emit(i.x(), i.y())
+            iix=self.canvas.mapFromGlobal(QCursor().pos())
+            self.mousePos.emit(iix.x(), iix.y())
+            pass
         elif s[1]=="show":
             self.canvas.show()
             self.canvasReturn.emit()
@@ -8493,6 +8533,8 @@ class FtcGuiApplication(TouchApplication):
         elif s[1]=="load":
             try:
                 self.painter.load(os.path.join(pixdir,s[2]))
+                self.painter.setDotsPerMeterX(3780)
+                self.painter.setDotsPerMeterY(3780)
                 self.canvas.setPixmap(QPixmap.fromImage(self.painter))
             except:
                 pass
