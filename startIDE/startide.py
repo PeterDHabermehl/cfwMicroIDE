@@ -941,6 +941,8 @@ class execThread(QThread):
             self.array.append([])
         if len(stack)>2:
             self.array[ self.arrays.index(stack[1]) ] = stack[2].split(";")
+            for i in range(0, len(self.array[ self.arrays.index(stack[1]) ])):
+              self.array[ self.arrays.index(stack[1]) ][i]= int(self.array[ self.arrays.index(stack[1]) ][i])
     
     def cmdArray(self,stack):
         var=stack[1]
