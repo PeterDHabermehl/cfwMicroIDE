@@ -2350,7 +2350,10 @@ class execThread(QThread):
             read=self.FTD.comm("i2c_read "+data)
         elif device=="SRD":            
             read=srdcomm(self.SRD, "i2c_read "+data)    
-
+        elif device=="TXT":
+            self.cmdPrint("TXT I2C communication not yet available")
+            return
+        
         data=read.split()
         if data[0]=="Fail" or data[0].strip()=="": data=[]
             
@@ -2376,6 +2379,9 @@ class execThread(QThread):
         
         elif device=="SRD":
             srdcomm(self.SRD, "i2c_write "+data)
+        
+        elif device=="TXT":
+            self.cmdPrint("TXT I2C communication not yet available")
 
 
 def srdcomm(device, command):

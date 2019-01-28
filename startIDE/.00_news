@@ -1,4 +1,5 @@
 News<hr>
+<b>v1.7.0(20190119)</b><br>official v1.7 release<hr>
 v1.6.12:<br> disable GPIO display buttons on 3.5" display<hr>
 v1.6.11:<br> new Calc functions: sign, unsign, bitShift, bitAnd, bitOr, bitXOr<hr>
 v1.6.10:<br> touch, actXPos and actYPos sources in fromSys<hr>
