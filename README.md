@@ -1,6 +1,6 @@
 # startIDE
 
-A german user guide (Handbuch, currently v1.6) is available: [ddoc/Manual_160_de.pdf](ddoc/Manual_160_de.pdf)
+A german user guide (Handbuch, currently v1.7) is available: [ddoc/Manual_170_de.pdf](ddoc/Manual_170_de.pdf)
 
 Eine Demo auf YouTube... [so einfach geht es!](https://www.youtube.com/watch?v=IHZensWPgkA)
 
