@@ -56,7 +56,7 @@ projdir = os.path.join(hostdir , "projects")
 moddir  = os.path.join(hostdir , "modules")
 logdir  = os.path.join(hostdir , "logfiles")
 pixdir  = os.path.join(hostdir , "pixmaps")
-arrdir  = os.path.join(hostdir,"arrays")
+arrdir  = os.path.join(hostdir , "arrays")
 
 if not os.path.exists(projdir):
     os.mkdir(projdir)
@@ -762,6 +762,8 @@ class execThread(QThread):
         elif stack[0]== "LookUpTable":  self.cmdLookUpTable(stack)
         elif stack[0]== "I2CWrite":     self.cmdI2CWrite(stack)
         elif stack[0]== "I2CRead":      self.cmdI2CRead(stack)
+        elif stack[0]== "USBWrite":     self.cmdUSBComm(stack)
+        elif stack[0]== "USBRead":      self.cmdUSBComm(stack)
         
         else:
             self.cmdPrint("DontKnowWhatToDo\nin code:\n"+line)
@@ -2363,19 +2365,20 @@ class execThread(QThread):
         for i in self.array[self.arrays.index(arr)]:
             data=data+str(i)+" "  
             
+        ret=[]
         if device=="FTD":
             read=self.FTD.comm("i2c_read "+data)
-            data=read.split()
+            ret=read.split()
         elif device=="SRD":            
             read=srdcomm(self.SRD, "i2c_read "+data)    
-            data=read.split()
+            ret=read.split()
         elif device=="TXT" or device=="RPI":                
-            data=i2c.read_i2c_block_data(int(self.array[self.arrays.index(arr)][0]),int(self.array[self.arrays.index(arr)][1]),int(self.array[self.arrays.index(arr)][2]))
+            ret=i2c.read_i2c_block_data(int(self.array[self.arrays.index(arr)][0]),int(self.array[self.arrays.index(arr)][1]),int(self.array[self.arrays.index(arr)][2]))
             
-        if data!=[]:
-            if data[0]=="Fail" or str(data[0]).strip()=="": data=[]
+        if ret!=[]:
+            if ret[0]=="Fail" or str(ret[0]).strip()=="": ret=[]
             
-        self.array[self.arrays.index(arr)]=data
+        self.array[self.arrays.index(arr)]=ret
 
         
     def cmdI2CWrite(self, stack):
@@ -2407,11 +2410,46 @@ class execThread(QThread):
                 i2c.write_i2c_block_data(dst[0], dst[1], dst[2:])
             else:
                 i2c.write_byte(dst[0], dst[1])
+    
+    def cmdUSBComm(self, stack):
+        device=stack[1]
+        arr=stack[3]
 
-def srdcomm(device, command):
+        if not (arr in self.arrays):
+            self.cmdPrint("Array '" + stack[1] + "'\nreferenced without\nArrayInit!\nProgram terminated")
+            self.halt=True
+
+        if self.halt: return
+        
+        data=""
+        for i in self.array[self.arrays.index(arr)]:
+            data=data+str(i)+" "
+            
+        if device=="FTD":
+            self.FTD.ftduino.timeout=None
+            ret=self.FTD.comm(stack[2]+" "+data)
+            self.FTD.ftduino.timeout=0.1
+        elif device=="SRD":
+            ret=srdcomm(self.SRD, stack[2]+" "+data, None)
+        
+        ret=ret.split()
+        
+        if (stack[0]=="USBRead"):
+            if ret!=[]:
+                if ret[0]=="Fail" or str(ret[0]).strip()=="": ret=[]
+                
+            self.array[self.arrays.index(arr)]=ret
+
+            
+#
+# servoDuino communication
+#
+
+def srdcomm(device, command, timeout=0.3):
     try:
         command=(command+"\n").encode("utf-8")
         
+        device.timeout=timeout
         device.flushInput()
         device.flushOutput()
         
@@ -7606,18 +7644,24 @@ class editArraySave(TouchDialog):
         self.close()
 
 def editI2CRead(cmdline, arrays, parent):
-    return editI2C(cmdline, "I2CRead", arrays, parent).exec_()
+    return editComm(cmdline, "I2CRead", arrays, parent).exec_()
 
 def editI2CWrite(cmdline, arrays, parent):
-    return editI2C(cmdline, "I2CWrite", arrays, parent).exec_()
+    return editComm(cmdline, "I2CWrite", arrays, parent).exec_()
 
-class editI2C(TouchDialog):    
+def editUSBRead(cmdline, arrays, parent):
+    return editComm(cmdline, "USBRead", arrays, parent).exec_()
+
+def editUSBWrite(cmdline, arrays, parent):
+    return editComm(cmdline, "USBWrite", arrays, parent).exec_()
+
+class editComm(TouchDialog):    
     def __init__(self, cmdline, xcmd, arrays, parent=None):
         TouchDialog.__init__(self, xcmd, parent)
         
         self.cmdline=cmdline
         self.arrays=arrays
-        self. xcmd=xcmd
+        self.xcmd=xcmd
         
     def exec_(self):
     
@@ -7629,7 +7673,6 @@ class editI2C(TouchDialog):
         
         self.layout=QVBoxLayout()
         
-        #
         h=QHBoxLayout()
         l=QLabel(QCoreApplication.translate("ecl", "Device:"))
         l.setStyleSheet("font-size: 18px;")
@@ -7640,14 +7683,29 @@ class editI2C(TouchDialog):
 
         self.interface=QComboBox()
         self.interface.setStyleSheet("font-size: 18px;")
-        self.interface.addItems(["SRD","TXT","FTD","RPI"])
+        if self.xcmd=="USBRead" or self.xcmd=="USBWrite":
+            self.interface.addItems(["SRD","FTD"])
+        else:
+            self.interface.addItems(["SRD","FTD","TXT","RPI"])
 
-        if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(1)
-        elif self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(2)
+        if self.cmdline.split()[1]=="TXT": self.interface.setCurrentIndex(2)
+        elif self.cmdline.split()[1]=="FTD": self.interface.setCurrentIndex(1)
         elif self.cmdline.split()[1]=="RPI": self.interface.setCurrentIndex(3)
         
         h.addWidget(self.interface)
+        if self.xcmd=="USBRead" or self.xcmd=="USBWrite":
+            h=QHBoxLayout()
+            l=QLabel(QCoreApplication.translate("ecl", "Command:"))
+            l.setStyleSheet("font-size: 18px;")
+            h.addWidget(l)
+            self.layout.addLayout(h)
+            
+            self.command=QLineEdit()
+            #self.command.setReadOnly(True)
+            self.command.setStyleSheet("font-size: 18px;")
+            self.command.setText(self.cmdline.split()[2])
         
+            self.layout.addWidget(self.command)
         
         h=QHBoxLayout()
         l=QLabel(QCoreApplication.translate("ecl", "Array:"))
@@ -7658,11 +7716,13 @@ class editI2C(TouchDialog):
         self.array=QComboBox()
         self.array.setStyleSheet("font-size: 18px;")
         self.array.addItems(self.arrays)
-
-        if self.cmdline.split()[2] in self.arrays:
+        self.array.setCurrentIndex(0)   
+        
+        if self.cmdline.split()[2] in self.arrays and not (self.xcmd=="USBRead" or self.xcmd=="USBWrite"):
             self.array.setCurrentIndex(self.arrays.index(self.cmdline.split()[2]))
-        else:
-            self.array.setCurrentIndex(0)
+        elif len(self.cmdline.split())>3:
+            if self.cmdline.split()[3] in self.arrays:
+                self.array.setCurrentIndex(self.arrays.index(self.cmdline.split()[3]))
 
         h.addWidget(self.array)
 
@@ -7677,6 +7737,10 @@ class editI2C(TouchDialog):
 
     def on_confirm(self):
         self.cmdline = self.xcmd + " " + self.interface.itemText(self.interface.currentIndex()) + " "
+        
+        if self.xcmd=="USBRead" or self.xcmd=="USBWrite":
+            self.cmdline=self.cmdline + self.command.text() + " "
+        
         self.cmdline = self.cmdline + self.array.itemText(self.array.currentIndex()) 
 
         self.close()
@@ -9078,7 +9142,9 @@ class FtcGuiApplication(TouchApplication):
                 elif p==QCoreApplication.translate("addcodeline","Communication"):
                     ftb=TouchAuxMultibutton(QCoreApplication.translate("addcodeline","Comm"), self.mainwindow)
                     ftb.setButtons([ QCoreApplication.translate("addcodeline","I2CWrite"),
-                                    QCoreApplication.translate("addcodeline","I2CRead")
+                                    QCoreApplication.translate("addcodeline","I2CRead"),
+                                    QCoreApplication.translate("addcodeline","USBWrite"),
+                                    QCoreApplication.translate("addcodeline","USBRead")
                                     ]
                                 )                    
                     ftb.setTextSize(3)
@@ -9087,7 +9153,8 @@ class FtcGuiApplication(TouchApplication):
                     if t:
                         if   p==QCoreApplication.translate("addcodeline","I2CWrite"):   self.acl_i2cwrite()
                         elif p==QCoreApplication.translate("addcodeline","I2CRead"): self.acl_i2cread()                          
-                            
+                        elif p==QCoreApplication.translate("addcodeline","USBWrite"):   self.acl_usbwrite()
+                        elif p==QCoreApplication.translate("addcodeline","USBRead"): self.acl_usbread()    
     def acl(self,code):
         self.proglist.insertItem(self.proglist.currentRow()+1,code)
         self.proglist.setCurrentRow(self.proglist.currentRow()+1)
@@ -9309,6 +9376,12 @@ class FtcGuiApplication(TouchApplication):
     
     def acl_i2cread(self):
         self.acl("I2CRead FTD array")
+
+    def acl_usbwrite(self):
+        self.acl("USBWrite FTD command array")
+    
+    def acl_usbread(self):
+        self.acl("USBRead FTD command array")
     
     def remCodeLine(self):
         row=self.proglist.currentRow()
@@ -9400,7 +9473,8 @@ class FtcGuiApplication(TouchApplication):
         elif stack[0] == "LookUpTable": itm=self.ecl_LookUpTable(itm, vari)
         elif stack[0] == "I2CRead":     itm=self.ecl_I2CRead(itm)
         elif stack[0] == "I2CWrite":    itm=self.ecl_I2CWrite(itm)
-        
+        elif stack[0] == "USBRead":     itm=self.ecl_USBRead(itm)
+        elif stack[0] == "USBWrite":    itm=self.ecl_USBWrite(itm)        
         
         self.proglist.setCurrentRow(crow)
         self.proglist.item(crow).setText(itm)
@@ -9734,7 +9808,6 @@ class FtcGuiApplication(TouchApplication):
                 if not a in arrays: arrays.append(a)
                 
         return editArrayInit(itm, arrays, self.mainwindow).exec_()
-        # return "ArrayInit " + clean(TouchAuxKeyboard(QCoreApplication.translate("ecl","ArrayInit"),itm.split()[1],self.mainwindow).exec_(),32)
 
     def ecl_Array(self, itm, vari):
         arrays=self.checkArrays(QCoreApplication.translate("ecl","Array"))
@@ -9794,6 +9867,17 @@ class FtcGuiApplication(TouchApplication):
         arrays=self.checkArrays("I2CWrite")
         if arrays==[]: return itm
         return editI2CWrite(itm, arrays, self.mainwindow)
+
+    
+    def ecl_USBRead(self, itm):
+        arrays=self.checkArrays("USBRead")
+        if arrays==[]: return itm
+        return editUSBRead(itm, arrays, self.mainwindow)
+    
+    def ecl_USBWrite(self, itm):
+        arrays=self.checkArrays("USBWrite")
+        if arrays==[]: return itm
+        return editUSBWrite(itm, arrays, self.mainwindow)
     
 #
 # and the initial application launch
