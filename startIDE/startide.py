@@ -4850,6 +4850,108 @@ class editInterrupt(TouchDialog):
         except:
             self.value.setText(a)
 
+class editDelay(TouchDialog):
+    def __init__(self, cmdline, vari, parent=None):
+        TouchDialog.__init__(self, QCoreApplication.translate("ecl","Delay"), parent)
+        
+        self.cmdline=cmdline
+        self.variables=vari
+    
+    def exec_(self):
+    
+        self.confirm = self.titlebar.addConfirm()
+        self.confirm.clicked.connect(self.on_confirm)
+        
+        self.timer = QTimer()
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.timedOut)
+    
+        self.titlebar.setCancelButton()
+        
+        self.layout=QVBoxLayout()
+        
+        l=QLabel(QCoreApplication.translate("ecl", "Type"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        self.layout.addWidget(l)
+        
+        self.interrupt=QComboBox()
+        self.interrupt.setStyleSheet("font-size: 18px;")
+            
+        oplist=["Fixed","Random"]
+        self.interrupt.addItems(oplist)
+        
+        if len(self.cmdline.split())>2:
+            self.interrupt.setCurrentIndex(1)
+        else:
+            self.interrupt.setCurrentIndex(0)
+        
+        self.layout.addWidget(self.interrupt)
+        
+        self.layout.addStretch()
+        
+        l=QLabel(QCoreApplication.translate("ecl", "Time"))
+        l.setStyleSheet("font-size: 18px;")
+        
+        self.layout.addWidget(l)
+        
+        self.value=QLineEdit()
+        self.value.setReadOnly(True)
+        self.value.setStyleSheet("font-size: 18px;")
+            
+        try:
+            self.value.setText(self.cmdline.split()[1])
+        except:
+            self.value.setText("500")
+            
+        self.value.mousePressEvent=self.valPress
+        self.value.mouseReleaseEvent=self.valRelease
+       
+        self.layout.addWidget(self.value)        
+        
+        self.layout.addStretch()
+
+        self.centralWidget.setLayout(self.layout)
+        
+        TouchDialog.exec_(self)
+        return self.cmdline
+    
+    def on_confirm(self):
+        self.cmdline="Delay " + self.value.text()
+        
+        if self.interrupt.currentIndex() == 1:
+            self.cmdline = self.cmdline + " R"
+        self.close()
+    
+    def valPress(self,sender):
+        
+        if self.timer.isActive(): self.timer.stop()
+        self.btn=1
+        self.btnTimedOut=False
+        self.timer.start(500)
+    
+    def timedOut(self):
+        self.btnTimedOut=True
+        self.timer.stop()
+        self.value.setText(queryVarName(self.variables,self.value.text()))  
+
+            
+    def valRelease(self,sender):
+        self.timer.stop()
+        if not self.btnTimedOut:
+            self.getValue(1)
+
+    def getValue(self,m):
+        a=self.value.text()
+        t=TouchAuxKeyboard(QCoreApplication.translate("ecl","Time"),a,self).exec_()
+        try:
+            v=str(max(min(int(t),99999),0))
+            self.value.setText(v)
+        except:
+            self.value.setText(a)
+
+
+
 class editInit(TouchDialog):
     def __init__(self, cmdline, vari, parent=None):
         TouchDialog.__init__(self, QCoreApplication.translate("ecl","Variable"), parent)
@@ -9658,6 +9760,8 @@ class FtcGuiApplication(TouchApplication):
         return editLoopTo(itm,tagteam,vari,self.mainwindow).exec_()
     
     def ecl_delay(self, itm, vari):
+        return editDelay(itm, vari, self.mainwindow).exec_()
+        '''
         if "R" in itm:
             try:
                 num=-1*int(itm[6:-2])
@@ -9678,7 +9782,8 @@ class FtcGuiApplication(TouchApplication):
             pass
         
         return "Delay "+itm[6:]
-    
+        '''
+        
     def ecl_iftimer(self, itm, vari):
         tagteam=self.checkTags("IfTimer")
         if tagteam==[]: return itm
